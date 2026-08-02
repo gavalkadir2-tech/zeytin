@@ -3,7 +3,7 @@ import * as XLSX from 'xlsx';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import {
   LayoutDashboard, Users, Scale as ScaleIcon, Wallet, FileBarChart, Warehouse, Settings as SettingsIcon,
-  Plus, Printer, Bluetooth, BluetoothConnected, Search, X, Phone, ChevronRight, Download, Package, ShoppingCart,
+  Plus, Printer, Bluetooth, BluetoothConnected, Search, X, Phone, ChevronRight, Download, Package, ShoppingCart, Clock as ClockIcon,
 } from 'lucide-react';
 
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
@@ -70,10 +70,10 @@ function GlobalStyle() {
       .zk-stat-label { font-size: 11px; color: ${COLORS.inkSoft}; margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
       .zk-stat-icon { width: 22px; height: 22px; border-radius: 6px; display: inline-flex; align-items: center; justify-content: center; background: ${COLORS.oliveSoft}; color: ${COLORS.olive}; }
       .zk-stat-value { font-family: var(--font-display); font-size: 22px; font-weight: 600; }
-      .zk-input, .zk-select { width: 100%; padding: 8px 10px; border-radius: 8px; border: 1px solid ${COLORS.border}; background: #FCFBF7; font-size: 13px; font-family: inherit; color: ${COLORS.ink}; }
+      .zk-input, .zk-select { width: 100%; padding: 11px 12px; border-radius: 8px; border: 1px solid ${COLORS.border}; background: #FCFBF7; font-size: 15px; font-family: inherit; color: ${COLORS.ink}; min-height: 44px; }
       .zk-input:focus, .zk-select:focus { outline: none; border-color: ${COLORS.oliveLight}; box-shadow: 0 0 0 3px ${COLORS.oliveSoft}; }
-      .zk-label { font-size: 11.5px; font-weight: 600; color: ${COLORS.inkSoft}; margin-bottom: 4px; display: block; }
-      .zk-btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: 8px; border: none; font-size: 12.5px; font-weight: 600; cursor: pointer; font-family: inherit; transition: background 0.12s ease, transform 0.08s ease, box-shadow 0.12s ease; }
+      .zk-label { font-size: 12.5px; font-weight: 600; color: ${COLORS.inkSoft}; margin-bottom: 5px; display: block; }
+      .zk-btn { display: inline-flex; align-items: center; gap: 6px; padding: 11px 16px; border-radius: 8px; border: none; font-size: 14px; font-weight: 600; cursor: pointer; font-family: inherit; transition: background 0.12s ease, transform 0.08s ease, box-shadow 0.12s ease; min-height: 44px; }
       .zk-btn:active:not(:disabled) { transform: scale(0.97); }
       .zk-btn-primary { background: ${COLORS.olive}; color: #fff; }
       .zk-btn-primary:hover { background: #333c25; box-shadow: 0 2px 8px rgba(63,74,46,0.25); }
@@ -84,12 +84,12 @@ function GlobalStyle() {
       .zk-btn-secondary { background: #fff; color: ${COLORS.ink}; border: 1px solid ${COLORS.border}; }
       .zk-btn-secondary:hover { background: #F7F5EE; }
       .zk-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-      .zk-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
-      .zk-table th { text-align: left; font-size: 10.5px; letter-spacing: 0.4px; color: ${COLORS.inkSoft}; padding: 7px 9px; border-bottom: 1px solid ${COLORS.border}; font-weight: 600; }
-      .zk-table td { padding: 9px 9px; border-bottom: 1px solid #EFEBDD; }
+      .zk-table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+      .zk-table th { text-align: left; font-size: 11px; letter-spacing: 0.4px; color: ${COLORS.inkSoft}; padding: 9px 10px; border-bottom: 1px solid ${COLORS.border}; font-weight: 600; }
+      .zk-table td { padding: 12px 10px; border-bottom: 1px solid #EFEBDD; }
       .zk-table tr { transition: background 0.1s ease; }
       .zk-table tr:hover td { background: #FAF8F1; }
-      .zk-badge { display: inline-block; padding: 2px 9px; border-radius: 20px; font-size: 10.5px; font-weight: 600; }
+      .zk-badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 11.5px; font-weight: 600; }
       .zk-badge-olive { background: ${COLORS.oliveSoft}; color: ${COLORS.olive}; }
       .zk-badge-gold { background: ${COLORS.goldSoft}; color: ${COLORS.gold}; }
       .zk-badge-red { background: ${COLORS.redSoft}; color: ${COLORS.red}; }
@@ -98,13 +98,14 @@ function GlobalStyle() {
       .zk-scale-readout { font-family: 'Courier New', monospace; font-size: 30px; font-weight: 700; color: #7FDB8F; }
       .zk-modal-overlay { position: fixed; inset: 0; background: rgba(20,20,15,0.45); display: flex; align-items: center; justify-content: center; z-index: 50; padding: 20px; }
       .zk-modal { background: #fff; border-radius: 14px; padding: 22px; width: 100%; max-width: 440px; max-height: 90vh; overflow-y: auto; }
-      .zk-close { background: none; border: none; cursor: pointer; color: ${COLORS.inkSoft}; padding: 4px; }
-      .zk-empty { text-align: center; padding: 36px 20px; color: ${COLORS.inkSoft}; font-size: 12.5px; }
-      .zk-farmer-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 13px; border-radius: 10px; cursor: pointer; border: 1px solid transparent; transition: background 0.12s ease, border-color 0.12s ease; }
+      .zk-close { background: none; border: none; cursor: pointer; color: ${COLORS.inkSoft}; padding: 8px; min-height: 40px; min-width: 40px; }
+      .zk-empty { text-align: center; padding: 36px 20px; color: ${COLORS.inkSoft}; font-size: 13px; }
+      .zk-farmer-row { display: flex; align-items: center; justify-content: space-between; padding: 14px 13px; border-radius: 10px; cursor: pointer; border: 1px solid transparent; transition: background 0.12s ease, border-color 0.12s ease; min-height: 44px; }
       .zk-farmer-row:hover { background: #FAF8F1; border-color: ${COLORS.border}; }
-      .zk-avatar { width: 32px; height: 32px; border-radius: 50%; background: ${COLORS.oliveSoft}; color: ${COLORS.olive}; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; font-family: var(--font-display); flex-shrink: 0; }
-      .zk-tag { font-size: 10px; padding: 1px 7px; border-radius: 5px; background: ${COLORS.oliveSoft}; color: ${COLORS.olive}; font-weight: 600; }
-      .zk-checkbox-row { display: flex; align-items: center; gap: 8px; font-size: 12.5px; }
+      .zk-avatar { width: 34px; height: 34px; border-radius: 50%; background: ${COLORS.oliveSoft}; color: ${COLORS.olive}; display: inline-flex; align-items: center; justify-content: center; font-size: 12.5px; font-weight: 700; font-family: var(--font-display); flex-shrink: 0; }
+      .zk-tag { font-size: 10.5px; padding: 2px 8px; border-radius: 5px; background: ${COLORS.oliveSoft}; color: ${COLORS.olive}; font-weight: 600; }
+      .zk-checkbox-row { display: flex; align-items: center; gap: 9px; font-size: 13.5px; min-height: 30px; }
+      .zk-checkbox-row input[type="checkbox"] { width: 19px; height: 19px; accent-color: ${COLORS.olive}; flex-shrink: 0; }
       .zk-empty-icon { color: ${COLORS.border}; margin-bottom: 8px; }
       #zk-print-area { display: none; }
       @media print {
@@ -112,6 +113,21 @@ function GlobalStyle() {
         body * { visibility: hidden; }
         #zk-print-area, #zk-print-area * { visibility: visible; }
         #zk-print-area { display: block; position: absolute; top: 0; left: 0; width: 100%; }
+      }
+
+      /* Tablet düzeni: yan menü üstte yatay bar olur, iki sütunlu formlar tek sütuna iner */
+      @media (max-width: 1024px) {
+        .zk-shell { flex-direction: column; }
+        .zk-sidebar { width: 100%; flex-direction: row; align-items: center; padding: 10px 12px; gap: 4px; overflow-x: auto; }
+        .zk-brand-row { margin-bottom: 0; padding: 0 8px 0 2px; flex-shrink: 0; }
+        .zk-brand-sub { display: none; }
+        .zk-navbtn { width: auto; white-space: nowrap; border-left: none; border-bottom: 2px solid transparent; padding: 10px 13px; }
+        .zk-navbtn.active { border-left: none; border-bottom: 2px solid ${COLORS.gold}; }
+        .zk-main { padding: 20px 16px; max-width: 100%; }
+        .zk-h1 { font-size: 21px; }
+      }
+      @media (max-width: 720px) {
+        .zk-grid[style*="1fr 1fr"] { grid-template-columns: 1fr !important; }
       }
     `}</style>
   );
@@ -143,7 +159,7 @@ function Modal({ title, onClose, children }) {
   );
 }
 
-function ScaleWidget({ onWeightCapture }) {
+function ScaleWidget({ onWeightCapture, compact }) {
   const [connected, setConnected] = useState(false);
   const [status, setStatus] = useState('Bağlı değil');
   const [rawLines, setRawLines] = useState([]);
@@ -221,6 +237,49 @@ function ScaleWidget({ onWeightCapture }) {
     setStatus('Bağlı değil');
     setLastValue(null);
   };
+
+  if (compact) {
+    return (
+      <div className="zk-scalebox zk-scalebox-compact">
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12, color: '#B7C4B3', minWidth: 90 }}>
+            {connected ? <BluetoothConnected size={15} /> : <Bluetooth size={15} />}
+            {status}
+          </div>
+
+          <div className="zk-scale-readout" style={{ fontSize: 26 }}>{lastValue !== null ? lastValue.toFixed(1) : '—'}</div>
+
+          {rawLines.length > 0 && (
+            <div style={{ fontSize: 10, color: '#6A7A6A', fontFamily: 'Courier New, monospace', flex: 1, minWidth: 100 }}>
+              {rawLines[rawLines.length - 1]}
+            </div>
+          )}
+
+          <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
+            {!connected && (
+              <select value={baud} onChange={(e) => setBaud(Number(e.target.value))} style={{ background: '#2A3128', color: '#DCE2CC', border: '1px solid #3A4235', borderRadius: 6, fontSize: 11, padding: '6px 6px' }}>
+                <option value={9600}>9600</option>
+                <option value={4800}>4800</option>
+                <option value={2400}>2400</option>
+                <option value={1200}>1200</option>
+                <option value={19200}>19200</option>
+              </select>
+            )}
+            {!connected ? (
+              <button className="zk-btn zk-btn-gold" onClick={connect}>Kantara bağlan</button>
+            ) : (
+              <>
+                <button className="zk-btn zk-btn-secondary" onClick={disconnect} style={{ background: '#2A3128', color: '#DCE2CC', border: 'none' }}>Kes</button>
+                <button className="zk-btn zk-btn-gold" disabled={lastValue === null} onClick={() => onWeightCapture(lastValue)}>
+                  Bu değeri kullan
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="zk-scalebox">
@@ -363,13 +422,64 @@ function DashboardTab({ farmers, purchases, payments, sales, setTab }) {
   );
 }
 
-function FarmersTab({ farmers, setFarmers, purchases, payments, setTab, setSelectedFarmerId }) {
-  const [showAdd, setShowAdd] = useState(false);
+function AddPersonnelModal({ onClose, onSave }) {
+  const [name, setName] = useState('');
+  return (
+    <Modal title="Yeni personel ekle" onClose={onClose}>
+      <div style={{ marginBottom: 18 }}>
+        <label className="zk-label">Ad soyad</label>
+        <input className="zk-input" value={name} onChange={(e) => setName(e.target.value)} placeholder="örn. Ali Demir" autoFocus />
+      </div>
+      <button className="zk-btn zk-btn-primary" style={{ width: '100%', justifyContent: 'center' }} onClick={() => onSave(name)}>Kaydet</button>
+    </Modal>
+  );
+}
+
+function AddFarmerModal({ onClose, onSave }) {
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [tcNo, setTcNo] = useState('');
   const [address, setAddress] = useState('');
   const [bagkurStatus, setBagkurStatus] = useState(false);
+
+  const submit = () => {
+    if (!name.trim()) return;
+    onSave({ name: name.trim(), phone: phone.trim(), tcNo: tcNo.trim(), address: address.trim(), bagkurStatus });
+  };
+
+  return (
+    <Modal title="Yeni çiftçi ekle" onClose={onClose}>
+      <div style={{ marginBottom: 12 }}>
+        <label className="zk-label">Ad soyad</label>
+        <input className="zk-input" value={name} onChange={(e) => setName(e.target.value)} placeholder="örn. Mehmet Yılmaz" autoFocus />
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
+        <div>
+          <label className="zk-label">Telefon</label>
+          <input className="zk-input" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="0532 xxx xx xx" />
+        </div>
+        <div>
+          <label className="zk-label">TC Kimlik No</label>
+          <input className="zk-input" value={tcNo} onChange={(e) => setTcNo(e.target.value)} placeholder="11 haneli" maxLength={11} />
+        </div>
+      </div>
+      <div style={{ marginBottom: 12 }}>
+        <label className="zk-label">Adres (müstahsil makbuzu için)</label>
+        <input className="zk-input" value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Köy / ilçe / il" />
+      </div>
+      <div style={{ marginBottom: 18 }}>
+        <label className="zk-checkbox-row">
+          <input type="checkbox" checked={bagkurStatus} onChange={(e) => setBagkurStatus(e.target.checked)} />
+          Tarım BAĞ-KUR'lu (SGK kesintisi uygulanır)
+        </label>
+      </div>
+      <button className="zk-btn zk-btn-primary" style={{ width: '100%', justifyContent: 'center' }} onClick={submit}>Kaydet</button>
+    </Modal>
+  );
+}
+
+function FarmersTab({ farmers, setFarmers, purchases, payments, setTab, setSelectedFarmerId }) {
+  const [showAdd, setShowAdd] = useState(false);
   const [query, setQuery] = useState('');
 
   const balances = useMemo(() => {
@@ -382,13 +492,12 @@ function FarmersTab({ farmers, setFarmers, purchases, payments, setTab, setSelec
 
   const filtered = farmers.filter((f) => f.name.toLowerCase().includes(query.toLowerCase()));
 
-  const addFarmer = async () => {
-    if (!name.trim()) return;
-    const newFarmer = { id: uid(), name: name.trim(), phone: phone.trim(), tcNo: tcNo.trim(), address: address.trim(), bagkurStatus, createdAt: Date.now() };
+  const addFarmer = async (data) => {
+    const newFarmer = { id: uid(), ...data, createdAt: Date.now() };
     const next = [...farmers, newFarmer];
     setFarmers(next);
     await storageSet('zk:farmers', next);
-    setName(''); setPhone(''); setTcNo(''); setAddress(''); setBagkurStatus(false); setShowAdd(false);
+    setShowAdd(false);
   };
 
   return (
@@ -441,44 +550,20 @@ function FarmersTab({ farmers, setFarmers, purchases, payments, setTab, setSelec
         )}
       </div>
 
-      {showAdd && (
-        <Modal title="Yeni çiftçi ekle" onClose={() => setShowAdd(false)}>
-          <div style={{ marginBottom: 12 }}>
-            <label className="zk-label">Ad soyad</label>
-            <input className="zk-input" value={name} onChange={(e) => setName(e.target.value)} placeholder="örn. Mehmet Yılmaz" autoFocus />
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
-            <div>
-              <label className="zk-label">Telefon</label>
-              <input className="zk-input" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="0532 xxx xx xx" />
-            </div>
-            <div>
-              <label className="zk-label">TC Kimlik No</label>
-              <input className="zk-input" value={tcNo} onChange={(e) => setTcNo(e.target.value)} placeholder="11 haneli" maxLength={11} />
-            </div>
-          </div>
-          <div style={{ marginBottom: 12 }}>
-            <label className="zk-label">Adres (müstahsil makbuzu için)</label>
-            <input className="zk-input" value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Köy / ilçe / il" />
-          </div>
-          <div style={{ marginBottom: 18 }}>
-            <label className="zk-checkbox-row">
-              <input type="checkbox" checked={bagkurStatus} onChange={(e) => setBagkurStatus(e.target.checked)} />
-              Tarım BAĞ-KUR'lu (SGK kesintisi uygulanır)
-            </label>
-          </div>
-          <button className="zk-btn zk-btn-primary" style={{ width: '100%', justifyContent: 'center' }} onClick={addFarmer}>Kaydet</button>
-        </Modal>
-      )}
+      {showAdd && <AddFarmerModal onClose={() => setShowAdd(false)} onSave={addFarmer} />}
     </div>
   );
 }
 
-function PurchaseTab({ farmers, purchases, setPurchases, onPrintReceipt, settings, priceList }) {
+function PurchaseTab({ farmers, setFarmers, purchases, setPurchases, onPrintReceipt, settings, priceList, personnel, setPersonnel }) {
   const [farmerId, setFarmerId] = useState('');
-  const [date, setDate] = useState(todayStr());
+  const [showAddFarmer, setShowAddFarmer] = useState(false);
+  const [personnelId, setPersonnelId] = useState('');
+  const [showAddPersonnel, setShowAddPersonnel] = useState(false);
+  const [now, setNow] = useState(new Date());
   const [commissionRate, setCommissionRate] = useState('3');
   const [borsaTescilli, setBorsaTescilli] = useState(false);
+  const [noDeduction, setNoDeduction] = useState(true);
   const [note, setNote] = useState('');
   const [applyBagkur, setApplyBagkur] = useState(false);
   const [bagkurRate, setBagkurRate] = useState('1');
@@ -488,10 +573,19 @@ function PurchaseTab({ farmers, purchases, setPurchases, onPrintReceipt, setting
   const [lineVariety, setLineVariety] = useState(priceList[0]?.name || '');
   const [lineGradeName, setLineGradeName] = useState('');
   const [lineKg, setLineKg] = useState('');
+  const [lineDara, setLineDara] = useState((settings.defaultTare ?? 10).toString());
   const [linePrice, setLinePrice] = useState('');
 
   const farmer = farmers.find((f) => f.id === farmerId);
   const selectedVariety = priceList.find((v) => v.name === lineVariety);
+  const date = now.toISOString().slice(0, 10);
+  const timeLabel = now.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+  const dateTimeLabel = now.toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric' }) + ' · ' + timeLabel;
+
+  useEffect(() => {
+    const t = setInterval(() => setNow(new Date()), 30000);
+    return () => clearInterval(t);
+  }, []);
 
   useEffect(() => {
     setApplyBagkur(farmer ? !!farmer.bagkurStatus : false);
@@ -515,12 +609,43 @@ function PurchaseTab({ farmers, purchases, setPurchases, onPrintReceipt, setting
     if (g) setLinePrice(g.price.toString());
   }, [lineGradeName]);
 
+  const handleFarmerSelect = (value) => {
+    if (value === '__add_new__') { setShowAddFarmer(true); return; }
+    setFarmerId(value);
+  };
+
+  const saveNewFarmer = async (data) => {
+    const newFarmer = { id: uid(), ...data, createdAt: Date.now() };
+    const next = [...farmers, newFarmer];
+    setFarmers(next);
+    await storageSet('zk:farmers', next);
+    setShowAddFarmer(false);
+    setFarmerId(newFarmer.id);
+  };
+
+  const handlePersonnelSelect = (value) => {
+    if (value === '__add_new__') { setShowAddPersonnel(true); return; }
+    setPersonnelId(value);
+  };
+
+  const saveNewPersonnel = async (nameVal) => {
+    if (!nameVal.trim()) return;
+    const newPerson = { id: uid(), name: nameVal.trim(), createdAt: Date.now() };
+    const next = [...personnel, newPerson];
+    setPersonnel(next);
+    await storageSet('zk:personnel', next);
+    setShowAddPersonnel(false);
+    setPersonnelId(newPerson.id);
+  };
+
   const addLine = () => {
-    const kgVal = parseFloat(lineKg);
+    const grossVal = parseFloat(lineKg);
+    const daraVal = parseFloat(lineDara) || 0;
     const priceVal = parseFloat(linePrice);
-    if (!lineVariety || !kgVal || kgVal <= 0 || !priceVal || priceVal <= 0) return;
+    const netVal = grossVal - daraVal;
+    if (!lineVariety || !grossVal || grossVal <= 0 || netVal <= 0 || !priceVal || priceVal <= 0) return;
     const label = lineGradeName ? `${lineVariety} · ${lineGradeName}` : lineVariety;
-    setItems((prev) => [...prev, { id: uid(), grade: label, kg: kgVal, pricePerKg: priceVal, amount: kgVal * priceVal }]);
+    setItems((prev) => [...prev, { id: uid(), grade: label, grossKg: grossVal, dara: daraVal, kg: netVal, pricePerKg: priceVal, amount: netVal * priceVal }]);
     setLineKg('');
   };
 
@@ -528,29 +653,34 @@ function PurchaseTab({ farmers, purchases, setPurchases, onPrintReceipt, setting
 
   const netKg = items.reduce((s, i) => s + i.kg, 0);
   const amount = items.reduce((s, i) => s + i.amount, 0);
-  const commissionAmount = amount * ((parseFloat(commissionRate) || 0) / 100);
+  const commissionAmount = noDeduction ? 0 : amount * ((parseFloat(commissionRate) || 0) / 100);
   const stopajOrani = stopajOraniHesapla(borsaTescilli);
-  const stopajTutari = amount * (stopajOrani / 100);
-  const bagkurTutari = applyBagkur ? amount * ((parseFloat(bagkurRate) || 0) / 100) : 0;
+  const stopajTutari = noDeduction ? 0 : amount * (stopajOrani / 100);
+  const bagkurTutari = (!noDeduction && applyBagkur) ? amount * ((parseFloat(bagkurRate) || 0) / 100) : 0;
   const netPayment = amount - commissionAmount - stopajTutari - bagkurTutari;
 
   const canSave = farmerId && items.length > 0;
 
   const save = async () => {
     if (!canSave) return;
+    const person = personnel.find((p) => p.id === personnelId);
     const record = {
       id: uid(),
       makbuzNo: purchases.length + 1,
       farmerId,
       date,
+      time: now.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }),
+      personnelId: personnelId || null,
+      personnelName: person ? person.name : '',
       items,
       netKg,
-      commissionRate: parseFloat(commissionRate) || 0,
+      noDeduction,
+      commissionRate: noDeduction ? 0 : (parseFloat(commissionRate) || 0),
       commissionAmount,
       borsaTescilli,
-      stopajOrani,
+      stopajOrani: noDeduction ? 0 : stopajOrani,
       stopajTutari,
-      applyBagkur,
+      applyBagkur: noDeduction ? false : applyBagkur,
       bagkurRate: parseFloat(bagkurRate) || 0,
       bagkurTutari,
       amount,
@@ -567,29 +697,40 @@ function PurchaseTab({ farmers, purchases, setPurchases, onPrintReceipt, setting
 
   return (
     <div>
-      <div className="zk-h1">Yeni alım</div>
+      <div className="zk-h1">Alım</div>
       <div className="zk-h1-sub">Elekten çıkan her sınıfı ayrı tartıp ekleyin, sonunda toplam üzerinden hesaplansın</div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1.3fr 1fr', gap: 18, alignItems: 'start' }}>
+      <ScaleWidget onWeightCapture={(v) => setLineKg(v.toFixed(1))} compact />
+
+      <div style={{ maxWidth: 640, marginTop: 16 }}>
         <div className="zk-card">
-          <div className="zk-grid" style={{ gridTemplateColumns: '1fr 1fr', marginBottom: 14 }}>
+          <div className="zk-grid" style={{ gridTemplateColumns: '1fr 1fr', marginBottom: 10 }}>
             <div>
               <label className="zk-label">Çiftçi</label>
-              <select className="zk-select" value={farmerId} onChange={(e) => setFarmerId(e.target.value)}>
+              <select className="zk-select" value={farmerId} onChange={(e) => handleFarmerSelect(e.target.value)}>
                 <option value="">Seçin...</option>
                 {farmers.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
+                <option value="__add_new__">+ Yeni çiftçi ekle</option>
               </select>
             </div>
             <div>
-              <label className="zk-label">Tarih</label>
-              <input className="zk-input" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+              <label className="zk-label">Alımı yapan personel</label>
+              <select className="zk-select" value={personnelId} onChange={(e) => handlePersonnelSelect(e.target.value)}>
+                <option value="">Seçin...</option>
+                {personnel.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                <option value="__add_new__">+ Yeni personel ekle</option>
+              </select>
             </div>
+          </div>
+
+          <div style={{ fontSize: 12, color: COLORS.inkSoft, marginBottom: 14, display: 'flex', alignItems: 'center', gap: 6 }}>
+            <ClockIcon size={13} /> {dateTimeLabel} (otomatik)
           </div>
 
           <div style={{ background: COLORS.paper, borderRadius: 10, padding: 12, marginBottom: 14 }}>
             <div className="zk-label" style={{ marginBottom: 8 }}>Tartım satırı ekle</div>
-            <div className="zk-grid" style={{ gridTemplateColumns: selectedVariety?.hasGrades ? '1fr 0.9fr 0.7fr 0.7fr auto' : '1.4fr 0.7fr 0.7fr auto', gap: 8, alignItems: 'end' }}>
-              <div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'end' }}>
+              <div style={{ flex: '1 1 140px' }}>
                 <label className="zk-label">Tür</label>
                 <select className="zk-select" value={lineVariety} onChange={(e) => setLineVariety(e.target.value)}>
                   {priceList.length === 0 && <option value="">Fiyat listesi boş</option>}
@@ -597,7 +738,7 @@ function PurchaseTab({ farmers, purchases, setPurchases, onPrintReceipt, setting
                 </select>
               </div>
               {selectedVariety?.hasGrades && (
-                <div>
+                <div style={{ flex: '1 1 120px' }}>
                   <label className="zk-label">Numara</label>
                   <select className="zk-select" value={lineGradeName} onChange={(e) => setLineGradeName(e.target.value)}>
                     {selectedVariety.grades.length === 0 && <option value="">Numara yok</option>}
@@ -605,26 +746,37 @@ function PurchaseTab({ farmers, purchases, setPurchases, onPrintReceipt, setting
                   </select>
                 </div>
               )}
-              <div>
-                <label className="zk-label">Kg</label>
+              <div style={{ flex: '1 1 100px' }}>
+                <label className="zk-label">Brüt kg</label>
                 <input className="zk-input" type="number" value={lineKg} onChange={(e) => setLineKg(e.target.value)} placeholder="0" />
               </div>
-              <div>
+              <div style={{ flex: '1 1 90px' }}>
+                <label className="zk-label">Dara (kg)</label>
+                <input className="zk-input" type="number" value={lineDara} onChange={(e) => setLineDara(e.target.value)} placeholder="0" />
+              </div>
+              <div style={{ flex: '1 1 100px' }}>
                 <label className="zk-label">Fiyat/kg</label>
                 <input className="zk-input" type="number" value={linePrice} onChange={(e) => setLinePrice(e.target.value)} placeholder="0.00" />
               </div>
-              <button className="zk-btn zk-btn-gold" onClick={addLine} style={{ height: 36 }}><Plus size={14} /> Ekle</button>
+              <button className="zk-btn zk-btn-gold" onClick={addLine}><Plus size={14} /> Ekle</button>
             </div>
+            {lineKg && lineDara !== '' && (
+              <div style={{ fontSize: 11.5, color: COLORS.inkSoft, marginTop: 8 }}>
+                Net: {fmtKg(Math.max((parseFloat(lineKg) || 0) - (parseFloat(lineDara) || 0), 0))}
+              </div>
+            )}
           </div>
 
           {items.length > 0 && (
             <table className="zk-table" style={{ marginBottom: 14 }}>
-              <thead><tr><th>Sınıf</th><th>Kg</th><th>Fiyat</th><th>Tutar</th><th></th></tr></thead>
+              <thead><tr><th>Sınıf</th><th>Brüt</th><th>Dara</th><th>Net</th><th>Fiyat</th><th>Tutar</th><th></th></tr></thead>
               <tbody>
                 {items.map((it) => (
                   <tr key={it.id}>
                     <td><span className="zk-badge zk-badge-blue">{it.grade}</span></td>
-                    <td>{fmtKg(it.kg)}</td>
+                    <td>{fmtKg(it.grossKg ?? it.kg)}</td>
+                    <td>{fmtKg(it.dara || 0)}</td>
+                    <td style={{ fontWeight: 600 }}>{fmtKg(it.kg)}</td>
                     <td>{fmtTL(it.pricePerKg)}/kg</td>
                     <td>{fmtTL(it.amount)}</td>
                     <td><button className="zk-btn zk-btn-secondary" style={{ padding: '4px 8px' }} onClick={() => removeLine(it.id)}><X size={12} /></button></td>
@@ -632,6 +784,8 @@ function PurchaseTab({ farmers, purchases, setPurchases, onPrintReceipt, setting
                 ))}
                 <tr>
                   <td style={{ fontWeight: 700 }}>Toplam</td>
+                  <td></td>
+                  <td></td>
                   <td style={{ fontWeight: 700 }}>{fmtKg(netKg)}</td>
                   <td></td>
                   <td style={{ fontWeight: 700 }}>{fmtTL(amount)}</td>
@@ -641,30 +795,37 @@ function PurchaseTab({ farmers, purchases, setPurchases, onPrintReceipt, setting
             </table>
           )}
 
-          <div className="zk-grid" style={{ gridTemplateColumns: '1fr 1fr', marginBottom: 12 }}>
-            <div>
-              <label className="zk-label">Komisyon oranı (%)</label>
-              <input className="zk-input" type="number" value={commissionRate} onChange={(e) => setCommissionRate(e.target.value)} placeholder="3" />
+          <label className="zk-checkbox-row" style={{ background: COLORS.oliveSoft, padding: '9px 12px', borderRadius: 8, marginBottom: 12 }}>
+            <input type="checkbox" checked={noDeduction} onChange={(e) => setNoDeduction(e.target.checked)} />
+            Kesintisiz hesapla (komisyon / stopaj / BAĞ-KUR uygulanmasın, tutarın tamamı ödensin)
+          </label>
+
+          {!noDeduction && (
+            <div className="zk-grid" style={{ gridTemplateColumns: '1fr 1fr', marginBottom: 12 }}>
+              <div>
+                <label className="zk-label">Komisyon oranı (%)</label>
+                <input className="zk-input" type="number" value={commissionRate} onChange={(e) => setCommissionRate(e.target.value)} placeholder="3" />
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', gap: 6 }}>
+                <label className="zk-checkbox-row">
+                  <input type="checkbox" checked={borsaTescilli} onChange={(e) => setBorsaTescilli(e.target.checked)} />
+                  Ticaret borsasına tescilli
+                </label>
+                <label className="zk-checkbox-row">
+                  <input type="checkbox" checked={applyBagkur} onChange={(e) => setApplyBagkur(e.target.checked)} />
+                  BAĞ-KUR kesintisi uygula (%)
+                  <input
+                    className="zk-input"
+                    type="number"
+                    value={bagkurRate}
+                    onChange={(e) => setBagkurRate(e.target.value)}
+                    style={{ width: 55, padding: '4px 6px' }}
+                    disabled={!applyBagkur}
+                  />
+                </label>
+              </div>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', gap: 6 }}>
-              <label className="zk-checkbox-row">
-                <input type="checkbox" checked={borsaTescilli} onChange={(e) => setBorsaTescilli(e.target.checked)} />
-                Ticaret borsasına tescilli
-              </label>
-              <label className="zk-checkbox-row">
-                <input type="checkbox" checked={applyBagkur} onChange={(e) => setApplyBagkur(e.target.checked)} />
-                BAĞ-KUR kesintisi uygula (%)
-                <input
-                  className="zk-input"
-                  type="number"
-                  value={bagkurRate}
-                  onChange={(e) => setBagkurRate(e.target.value)}
-                  style={{ width: 55, padding: '4px 6px' }}
-                  disabled={!applyBagkur}
-                />
-              </label>
-            </div>
-          </div>
+          )}
 
           <div style={{ marginBottom: 16 }}>
             <label className="zk-label">Not (opsiyonel)</label>
@@ -673,9 +834,13 @@ function PurchaseTab({ farmers, purchases, setPurchases, onPrintReceipt, setting
 
           <div style={{ background: COLORS.paper, borderRadius: 10, padding: 14, marginBottom: 16, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, fontSize: 12.5 }}>
             <div>Ürün tutarı ({fmtKg(netKg)})</div><div style={{ textAlign: 'right', fontWeight: 600 }}>{fmtTL(amount)}</div>
-            <div style={{ color: COLORS.gold }}>Komisyon (%{commissionRate || 0})</div><div style={{ textAlign: 'right', fontWeight: 600, color: COLORS.gold }}>− {fmtTL(commissionAmount)}</div>
-            <div style={{ color: COLORS.blue }}>Stopaj (%{stopajOrani})</div><div style={{ textAlign: 'right', fontWeight: 600, color: COLORS.blue }}>− {fmtTL(stopajTutari)}</div>
-            {applyBagkur && (<><div style={{ color: COLORS.red }}>BAĞ-KUR (%{bagkurRate || 0})</div><div style={{ textAlign: 'right', fontWeight: 600, color: COLORS.red }}>− {fmtTL(bagkurTutari)}</div></>)}
+            {!noDeduction && (
+              <>
+                <div style={{ color: COLORS.gold }}>Komisyon (%{commissionRate || 0})</div><div style={{ textAlign: 'right', fontWeight: 600, color: COLORS.gold }}>− {fmtTL(commissionAmount)}</div>
+                <div style={{ color: COLORS.blue }}>Stopaj (%{stopajOrani})</div><div style={{ textAlign: 'right', fontWeight: 600, color: COLORS.blue }}>− {fmtTL(stopajTutari)}</div>
+                {applyBagkur && (<><div style={{ color: COLORS.red }}>BAĞ-KUR (%{bagkurRate || 0})</div><div style={{ textAlign: 'right', fontWeight: 600, color: COLORS.red }}>− {fmtTL(bagkurTutari)}</div></>)}
+              </>
+            )}
             <div style={{ fontWeight: 700, borderTop: `1px solid ${COLORS.border}`, paddingTop: 8 }}>Çiftçiye ödenecek</div>
             <div style={{ textAlign: 'right', fontWeight: 700, borderTop: `1px solid ${COLORS.border}`, paddingTop: 8, color: COLORS.olive }}>{fmtTL(netPayment)}</div>
           </div>
@@ -691,9 +856,10 @@ function PurchaseTab({ farmers, purchases, setPurchases, onPrintReceipt, setting
             </div>
           )}
         </div>
-
-        <ScaleWidget onWeightCapture={(v) => setLineKg(v.toFixed(1))} />
       </div>
+
+      {showAddFarmer && <AddFarmerModal onClose={() => setShowAddFarmer(false)} onSave={saveNewFarmer} />}
+      {showAddPersonnel && <AddPersonnelModal onClose={() => setShowAddPersonnel(false)} onSave={saveNewPersonnel} />}
     </div>
   );
 }
@@ -1252,10 +1418,11 @@ function SettingsTab({ settings, setSettings, priceList, setPriceList }) {
   const [businessName, setBusinessName] = useState(settings.businessName || '');
   const [taxNo, setTaxNo] = useState(settings.taxNo || '');
   const [address, setAddress] = useState(settings.address || '');
+  const [defaultTare, setDefaultTare] = useState(settings.defaultTare ?? 10);
   const [newVarietyName, setNewVarietyName] = useState('');
 
   const save = async () => {
-    const next = { businessName, taxNo, address };
+    const next = { businessName, taxNo, address, defaultTare: parseFloat(defaultTare) || 0 };
     setSettings(next);
     await storageSet('zk:settings', next);
   };
@@ -1300,6 +1467,11 @@ function SettingsTab({ settings, setSettings, priceList, setPriceList }) {
             <label className="zk-label">Adres</label>
             <input className="zk-input" value={address} onChange={(e) => setAddress(e.target.value)} />
           </div>
+          <div style={{ marginBottom: 18 }}>
+            <label className="zk-label">Varsayılan dara (kg)</label>
+            <input className="zk-input" type="number" value={defaultTare} onChange={(e) => setDefaultTare(e.target.value)} placeholder="10" />
+            <div style={{ fontSize: 11, color: COLORS.inkSoft, marginTop: 4 }}>Alım ekranında her satıra otomatik gelir, orada değiştirilebilir.</div>
+          </div>
           <button className="zk-btn zk-btn-primary" onClick={save}>Kaydet</button>
         </div>
 
@@ -1335,7 +1507,8 @@ function PrintArea({ purchase, farmer, settings }) {
         <div style={{ borderTop: '1px dashed #000', borderBottom: '1px dashed #000', padding: '4px 0', marginBottom: 6, textAlign: 'center', fontWeight: 700 }}>
           MÜSTAHSİL MAKBUZU No: {purchase.makbuzNo}
         </div>
-        <div>Tarih: {fmtDate(purchase.date)}</div>
+        <div>Tarih: {fmtDate(purchase.date)}{purchase.time ? ` · ${purchase.time}` : ''}</div>
+        {purchase.personnelName && <div>Personel: {purchase.personnelName}</div>}
         <div>Satıcı: {farmer.name}</div>
         {farmer.tcNo && <div>TC No: {farmer.tcNo}</div>}
         {farmer.address && <div>Adres: {farmer.address}</div>}
@@ -1362,9 +1535,15 @@ function PrintArea({ purchase, farmer, settings }) {
         <div style={{ borderTop: '1px dashed #000', margin: '6px 0' }} />
         <table style={{ width: '100%' }}>
           <tbody>
-            <tr><td>Komisyon (%{purchase.commissionRate})</td><td style={{ textAlign: 'right' }}>− {fmtTL(purchase.commissionAmount)}</td></tr>
-            <tr><td>Stopaj (%{purchase.stopajOrani})</td><td style={{ textAlign: 'right' }}>− {fmtTL(purchase.stopajTutari)}</td></tr>
-            {purchase.applyBagkur && <tr><td>BAĞ-KUR (%{purchase.bagkurRate})</td><td style={{ textAlign: 'right' }}>− {fmtTL(purchase.bagkurTutari)}</td></tr>}
+            {purchase.noDeduction ? (
+              <tr><td>Kesintisiz</td><td style={{ textAlign: 'right' }}>—</td></tr>
+            ) : (
+              <>
+                <tr><td>Komisyon (%{purchase.commissionRate})</td><td style={{ textAlign: 'right' }}>− {fmtTL(purchase.commissionAmount)}</td></tr>
+                <tr><td>Stopaj (%{purchase.stopajOrani})</td><td style={{ textAlign: 'right' }}>− {fmtTL(purchase.stopajTutari)}</td></tr>
+                {purchase.applyBagkur && <tr><td>BAĞ-KUR (%{purchase.bagkurRate})</td><td style={{ textAlign: 'right' }}>− {fmtTL(purchase.bagkurTutari)}</td></tr>}
+              </>
+            )}
             <tr style={{ borderTop: '1px solid #000' }}><td style={{ fontWeight: 700, paddingTop: 4 }}>ÖDENEN NET</td><td style={{ textAlign: 'right', fontWeight: 700, paddingTop: 4 }}>{fmtTL(purchase.netPayment)}</td></tr>
           </tbody>
         </table>
@@ -1387,13 +1566,14 @@ export default function ZeytinDefteri() {
   const [sales, setSales] = useState([]);
   const [settings, setSettings] = useState({});
   const [priceList, setPriceList] = useState([]);
+  const [personnel, setPersonnel] = useState([]);
   const [selectedFarmerId, setSelectedFarmerId] = useState('');
   const [loaded, setLoaded] = useState(false);
   const [printTarget, setPrintTarget] = useState(null);
 
   useEffect(() => {
     (async () => {
-      const [f, p, pay, b, s, set, pl] = await Promise.all([
+      const [f, p, pay, b, s, set, pl, per] = await Promise.all([
         storageGet('zk:farmers'),
         storageGet('zk:purchases'),
         storageGet('zk:payments'),
@@ -1401,9 +1581,11 @@ export default function ZeytinDefteri() {
         storageGet('zk:sales'),
         storageGet('zk:settings'),
         storageGet('zk:priceList'),
+        storageGet('zk:personnel'),
       ]);
       setFarmers(f || []); setPurchases(p || []); setPayments(pay || []);
       setBuyers(b || []); setSales(s || []); setSettings(set || {});
+      setPersonnel(per || []);
       if (pl && pl.length > 0) {
         const normalized = pl.map((v) => ('grades' in v ? v : { id: v.id, name: v.name, hasGrades: false, singlePrice: v.price || 0, grades: [] }));
         setPriceList(normalized);
@@ -1438,7 +1620,7 @@ export default function ZeytinDefteri() {
   const navItems = [
     { key: 'dashboard', label: 'Pano', icon: LayoutDashboard },
     { key: 'farmers', label: 'Çiftçiler', icon: Users },
-    { key: 'purchase', label: 'Yeni alım', icon: ScaleIcon },
+    { key: 'purchase', label: 'Alım', icon: ScaleIcon },
     { key: 'warehouse', label: 'Depo & satış', icon: Warehouse },
     { key: 'ledger', label: 'Cari hesap', icon: Wallet },
     { key: 'reports', label: 'Raporlar', icon: FileBarChart },
@@ -1472,7 +1654,7 @@ export default function ZeytinDefteri() {
         <div className="zk-main">
           {tab === 'dashboard' && <DashboardTab farmers={farmers} purchases={purchases} payments={payments} sales={sales} setTab={setTab} />}
           {tab === 'farmers' && <FarmersTab farmers={farmers} setFarmers={setFarmers} purchases={purchases} payments={payments} setTab={setTab} setSelectedFarmerId={setSelectedFarmerId} />}
-          {tab === 'purchase' && <PurchaseTab farmers={farmers} purchases={purchases} setPurchases={setPurchases} onPrintReceipt={handlePrintReceipt} settings={settings} priceList={priceList} />}
+          {tab === 'purchase' && <PurchaseTab farmers={farmers} setFarmers={setFarmers} purchases={purchases} setPurchases={setPurchases} onPrintReceipt={handlePrintReceipt} settings={settings} priceList={priceList} personnel={personnel} setPersonnel={setPersonnel} />}
           {tab === 'warehouse' && <WarehouseTab purchases={purchases} buyers={buyers} setBuyers={setBuyers} sales={sales} setSales={setSales} />}
           {tab === 'ledger' && <LedgerTab farmers={farmers} purchases={purchases} payments={payments} setPayments={setPayments} selectedFarmerId={selectedFarmerId} setSelectedFarmerId={setSelectedFarmerId} onPrintReceipt={handlePrintReceipt} />}
           {tab === 'reports' && <ReportsTab farmers={farmers} purchases={purchases} sales={sales} buyers={buyers} />}
