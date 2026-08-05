@@ -4,6 +4,7 @@ import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, R
 import {
   LayoutDashboard, Users, Scale as ScaleIcon, Wallet, FileBarChart, Warehouse, Settings as SettingsIcon,
   Plus, Printer, Bluetooth, BluetoothConnected, Search, X, Phone, ChevronRight, Download, Package, ShoppingCart, Clock as ClockIcon,
+  Receipt, Banknote, ListChecks, Upload, MessageCircle, Truck, Contact as IdCard,
 } from 'lucide-react';
 
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
@@ -15,7 +16,6 @@ const fmtDateShort = (d) => new Date(d).toLocaleDateString('tr-TR', { day: '2-di
 
 // Bu proje bağımsız (standalone) çalıştığı için Claude artifact ortamındaki
 // window.storage yerine tarayıcının kendi localStorage'ını kullanır.
-// Veriler sadece bu tarayıcıda / bu cihazda saklanır.
 async function storageGet(key) {
   try {
     const raw = window.localStorage.getItem(key);
@@ -332,6 +332,42 @@ function stopajOraniHesapla(borsaTescilli) {
   return borsaTescilli ? 2 : 4;
 }
 
+function formatPhoneForWhatsApp(phone) {
+  if (!phone) return null;
+  let digits = phone.replace(/\D/g, '');
+  if (digits.length === 0) return null;
+  if (digits.startsWith('0')) digits = '90' + digits.slice(1);
+  else if (digits.startsWith('90')) { /* zaten doğru */ }
+  else if (digits.length === 10) digits = '90' + digits;
+  return digits;
+}
+
+function buildWhatsAppReceiptText(purchase, farmer, settings) {
+  const lines = [];
+  lines.push(`*${settings.businessName || 'Zeytin Komisyonculuğu'}*`);
+  lines.push(`Müstahsil Makbuzu No: ${purchase.makbuzNo}`);
+  lines.push(`Tarih: ${fmtDate(purchase.date)}${purchase.time ? ' · ' + purchase.time : ''}`);
+  lines.push(`Sayın ${farmer.name},`);
+  lines.push('');
+  lines.push('Zeytin teslimatınızın dökümü:');
+  (purchase.items || []).forEach((it) => {
+    lines.push(`• ${it.grade}: ${fmtKg(it.kg)} × ${fmtTL(it.pricePerKg)}/kg = ${fmtTL(it.amount)}`);
+  });
+  lines.push('');
+  lines.push(`Toplam net: ${fmtKg(purchase.netKg)}`);
+  lines.push(`Ürün tutarı: ${fmtTL(purchase.amount)}`);
+  if (!purchase.noDeduction) {
+    lines.push(`Komisyon (%${purchase.commissionRate}): -${fmtTL(purchase.commissionAmount)}`);
+    lines.push(`Stopaj (%${purchase.stopajOrani}): -${fmtTL(purchase.stopajTutari)}`);
+    if (purchase.applyBagkur) lines.push(`BAĞ-KUR (%${purchase.bagkurRate}): -${fmtTL(purchase.bagkurTutari)}`);
+  }
+  lines.push(`*Ödenecek net: ${fmtTL(purchase.netPayment)}*`);
+  if (purchase.note) lines.push(`Not: ${purchase.note}`);
+  lines.push('');
+  lines.push('Teşekkür ederiz.');
+  return lines.join('\n');
+}
+
 function DashboardTab({ farmers, purchases, payments, sales, setTab }) {
   const today = todayStr();
   const todaysPurchases = purchases.filter((p) => p.date === today);
@@ -427,13 +463,58 @@ function DashboardTab({ farmers, purchases, payments, sales, setTab }) {
 
 function AddPersonnelModal({ onClose, onSave }) {
   const [name, setName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [role, setRole] = useState('');
   return (
     <Modal title="Yeni personel ekle" onClose={onClose}>
-      <div style={{ marginBottom: 18 }}>
+      <div style={{ marginBottom: 12 }}>
         <label className="zk-label">Ad soyad</label>
         <input className="zk-input" value={name} onChange={(e) => setName(e.target.value)} placeholder="örn. Ali Demir" autoFocus />
       </div>
-      <button className="zk-btn zk-btn-primary" style={{ width: '100%', justifyContent: 'center' }} onClick={() => onSave(name)}>Kaydet</button>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 18 }}>
+        <div>
+          <label className="zk-label">Telefon</label>
+          <input className="zk-input" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="0532 xxx xx xx" />
+        </div>
+        <div>
+          <label className="zk-label">Görev (opsiyonel)</label>
+          <input className="zk-input" value={role} onChange={(e) => setRole(e.target.value)} placeholder="örn. Şoför, Tartı memuru" />
+        </div>
+      </div>
+      <button className="zk-btn zk-btn-primary" style={{ width: '100%', justifyContent: 'center' }} onClick={() => onSave({ name, phone, role })}>Kaydet</button>
+    </Modal>
+  );
+}
+
+function AddVehicleModal({ onClose, onSave, personnel }) {
+  const [plaka, setPlaka] = useState('');
+  const [marka, setMarka] = useState('');
+  const [kapasite, setKapasite] = useState('');
+  const [defaultPersonnelId, setDefaultPersonnelId] = useState('');
+  return (
+    <Modal title="Yeni araç ekle" onClose={onClose}>
+      <div style={{ marginBottom: 12 }}>
+        <label className="zk-label">Plaka</label>
+        <input className="zk-input" value={plaka} onChange={(e) => setPlaka(e.target.value.toUpperCase())} placeholder="örn. 35 ABC 123" autoFocus />
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
+        <div>
+          <label className="zk-label">Marka / model</label>
+          <input className="zk-input" value={marka} onChange={(e) => setMarka(e.target.value)} placeholder="örn. Ford Kamyonet" />
+        </div>
+        <div>
+          <label className="zk-label">Kapasite (kg)</label>
+          <input className="zk-input" type="number" value={kapasite} onChange={(e) => setKapasite(e.target.value)} placeholder="örn. 3000" />
+        </div>
+      </div>
+      <div style={{ marginBottom: 18 }}>
+        <label className="zk-label">Varsayılan sürücü (opsiyonel)</label>
+        <select className="zk-select" value={defaultPersonnelId} onChange={(e) => setDefaultPersonnelId(e.target.value)}>
+          <option value="">Seçin...</option>
+          {personnel.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+        </select>
+      </div>
+      <button className="zk-btn zk-btn-primary" style={{ width: '100%', justifyContent: 'center' }} onClick={() => onSave({ plaka, marka, kapasite: parseFloat(kapasite) || 0, defaultPersonnelId })}>Kaydet</button>
     </Modal>
   );
 }
@@ -558,11 +639,13 @@ function FarmersTab({ farmers, setFarmers, purchases, payments, setTab, setSelec
   );
 }
 
-function PurchaseTab({ farmers, setFarmers, purchases, setPurchases, onPrintReceipt, settings, priceList, personnel, setPersonnel }) {
+function PurchaseTab({ farmers, setFarmers, purchases, setPurchases, onPrintReceipt, settings, priceList, personnel, setPersonnel, vehicles, setVehicles }) {
   const [farmerId, setFarmerId] = useState('');
   const [showAddFarmer, setShowAddFarmer] = useState(false);
   const [personnelId, setPersonnelId] = useState('');
   const [showAddPersonnel, setShowAddPersonnel] = useState(false);
+  const [vehicleId, setVehicleId] = useState('');
+  const [showAddVehicle, setShowAddVehicle] = useState(false);
   const [now, setNow] = useState(new Date());
   const [commissionRate, setCommissionRate] = useState('3');
   const [borsaTescilli, setBorsaTescilli] = useState(false);
@@ -576,8 +659,12 @@ function PurchaseTab({ farmers, setFarmers, purchases, setPurchases, onPrintRece
   const [lineVariety, setLineVariety] = useState(priceList[0]?.name || '');
   const [lineGradeName, setLineGradeName] = useState('');
   const [lineKg, setLineKg] = useState('');
-  const [lineDara, setLineDara] = useState((settings.defaultTare ?? 10).toString());
+  const [crateWeight] = useState(settings.crateWeight ?? 2);
+  const [crateCount, setCrateCount] = useState(Math.max(0, Math.min(7, settings.defaultCrateCount ?? 5)));
   const [linePrice, setLinePrice] = useState('');
+
+  const lineDara = crateCount * crateWeight;
+  const adjustCrateCount = (delta) => setCrateCount((c) => Math.max(0, Math.min(7, c + delta)));
 
   const farmer = farmers.find((f) => f.id === farmerId);
   const selectedVariety = priceList.find((v) => v.name === lineVariety);
@@ -631,9 +718,9 @@ function PurchaseTab({ farmers, setFarmers, purchases, setPurchases, onPrintRece
     setPersonnelId(value);
   };
 
-  const saveNewPersonnel = async (nameVal) => {
-    if (!nameVal.trim()) return;
-    const newPerson = { id: uid(), name: nameVal.trim(), createdAt: Date.now() };
+  const saveNewPersonnel = async (data) => {
+    if (!data.name || !data.name.trim()) return;
+    const newPerson = { id: uid(), name: data.name.trim(), phone: data.phone || '', role: data.role || '', createdAt: Date.now() };
     const next = [...personnel, newPerson];
     setPersonnel(next);
     await storageSet('zk:personnel', next);
@@ -641,14 +728,31 @@ function PurchaseTab({ farmers, setFarmers, purchases, setPurchases, onPrintRece
     setPersonnelId(newPerson.id);
   };
 
+  const handleVehicleSelect = (value) => {
+    if (value === '__add_new__') { setShowAddVehicle(true); return; }
+    setVehicleId(value);
+    const v = vehicles.find((x) => x.id === value);
+    if (v && v.defaultPersonnelId && !personnelId) setPersonnelId(v.defaultPersonnelId);
+  };
+
+  const saveNewVehicle = async (data) => {
+    if (!data.plaka || !data.plaka.trim()) return;
+    const newVehicle = { id: uid(), plaka: data.plaka.trim(), marka: data.marka || '', kapasite: data.kapasite || 0, defaultPersonnelId: data.defaultPersonnelId || '', createdAt: Date.now() };
+    const next = [...vehicles, newVehicle];
+    setVehicles(next);
+    await storageSet('zk:vehicles', next);
+    setShowAddVehicle(false);
+    setVehicleId(newVehicle.id);
+  };
+
   const addLine = () => {
     const grossVal = parseFloat(lineKg);
-    const daraVal = parseFloat(lineDara) || 0;
+    const daraVal = lineDara;
     const priceVal = parseFloat(linePrice);
     const netVal = grossVal - daraVal;
     if (!lineVariety || !grossVal || grossVal <= 0 || netVal <= 0 || !priceVal || priceVal <= 0) return;
     const label = lineGradeName ? `${lineVariety} · ${lineGradeName}` : lineVariety;
-    setItems((prev) => [...prev, { id: uid(), grade: label, grossKg: grossVal, dara: daraVal, kg: netVal, pricePerKg: priceVal, amount: netVal * priceVal }]);
+    setItems((prev) => [...prev, { id: uid(), grade: label, grossKg: grossVal, dara: daraVal, crateCount, kg: netVal, pricePerKg: priceVal, amount: netVal * priceVal }]);
     setLineKg('');
   };
 
@@ -667,6 +771,7 @@ function PurchaseTab({ farmers, setFarmers, purchases, setPurchases, onPrintRece
   const save = async () => {
     if (!canSave) return;
     const person = personnel.find((p) => p.id === personnelId);
+    const vehicle = vehicles.find((v) => v.id === vehicleId);
     const record = {
       id: uid(),
       makbuzNo: purchases.length + 1,
@@ -675,6 +780,8 @@ function PurchaseTab({ farmers, setFarmers, purchases, setPurchases, onPrintRece
       time: now.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }),
       personnelId: personnelId || null,
       personnelName: person ? person.name : '',
+      vehicleId: vehicleId || null,
+      vehiclePlaka: vehicle ? vehicle.plaka : '',
       items,
       netKg,
       noDeduction,
@@ -707,21 +814,30 @@ function PurchaseTab({ farmers, setFarmers, purchases, setPurchases, onPrintRece
 
       <div style={{ maxWidth: 640, marginTop: 16 }}>
         <div className="zk-card">
+          <div style={{ marginBottom: 10 }}>
+            <label className="zk-label">Çiftçi</label>
+            <select className="zk-select" value={farmerId} onChange={(e) => handleFarmerSelect(e.target.value)}>
+              <option value="">Seçin...</option>
+              {farmers.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
+              <option value="__add_new__">+ Yeni çiftçi ekle</option>
+            </select>
+          </div>
+
           <div className="zk-grid" style={{ gridTemplateColumns: '1fr 1fr', marginBottom: 10 }}>
-            <div>
-              <label className="zk-label">Çiftçi</label>
-              <select className="zk-select" value={farmerId} onChange={(e) => handleFarmerSelect(e.target.value)}>
-                <option value="">Seçin...</option>
-                {farmers.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
-                <option value="__add_new__">+ Yeni çiftçi ekle</option>
-              </select>
-            </div>
             <div>
               <label className="zk-label">Alımı yapan personel</label>
               <select className="zk-select" value={personnelId} onChange={(e) => handlePersonnelSelect(e.target.value)}>
                 <option value="">Seçin...</option>
                 {personnel.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
                 <option value="__add_new__">+ Yeni personel ekle</option>
+              </select>
+            </div>
+            <div>
+              <label className="zk-label">Araç</label>
+              <select className="zk-select" value={vehicleId} onChange={(e) => handleVehicleSelect(e.target.value)}>
+                <option value="">Seçin...</option>
+                {vehicles.map((v) => <option key={v.id} value={v.id}>{v.plaka}</option>)}
+                <option value="__add_new__">+ Yeni araç ekle</option>
               </select>
             </div>
           </div>
@@ -750,12 +866,18 @@ function PurchaseTab({ farmers, setFarmers, purchases, setPurchases, onPrintRece
                 </div>
               )}
               <div style={{ flex: '1 1 100px' }}>
-                <label className="zk-label">Brüt kg</label>
+                <label className="zk-label">Ölçülen (kg)</label>
                 <input className="zk-input" type="number" value={lineKg} onChange={(e) => setLineKg(e.target.value)} placeholder="0" />
               </div>
-              <div style={{ flex: '1 1 90px' }}>
-                <label className="zk-label">Dara (kg)</label>
-                <input className="zk-input" type="number" value={lineDara} onChange={(e) => setLineDara(e.target.value)} placeholder="0" />
+              <div style={{ flex: '1 1 150px' }}>
+                <label className="zk-label">Dara (kasa)</label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <button className="zk-btn zk-btn-secondary" style={{ padding: '0 12px', minWidth: 40 }} onClick={() => adjustCrateCount(-1)} disabled={crateCount <= 0}>−</button>
+                  <div style={{ flex: 1, textAlign: 'center', fontSize: 13, fontWeight: 600 }}>
+                    {crateCount} kasa<div style={{ fontSize: 10.5, color: COLORS.inkSoft, fontWeight: 400 }}>{fmtKg(lineDara)}</div>
+                  </div>
+                  <button className="zk-btn zk-btn-secondary" style={{ padding: '0 12px', minWidth: 40 }} onClick={() => adjustCrateCount(1)} disabled={crateCount >= 7}>+</button>
+                </div>
               </div>
               <div style={{ flex: '1 1 100px' }}>
                 <label className="zk-label">Fiyat/kg</label>
@@ -763,22 +885,22 @@ function PurchaseTab({ farmers, setFarmers, purchases, setPurchases, onPrintRece
               </div>
               <button className="zk-btn zk-btn-gold" onClick={addLine}><Plus size={14} /> Ekle</button>
             </div>
-            {lineKg && lineDara !== '' && (
+            {lineKg && (
               <div style={{ fontSize: 11.5, color: COLORS.inkSoft, marginTop: 8 }}>
-                Net: {fmtKg(Math.max((parseFloat(lineKg) || 0) - (parseFloat(lineDara) || 0), 0))}
+                Net: {fmtKg(Math.max((parseFloat(lineKg) || 0) - lineDara, 0))}
               </div>
             )}
           </div>
 
           {items.length > 0 && (
             <table className="zk-table" style={{ marginBottom: 14 }}>
-              <thead><tr><th>Sınıf</th><th>Brüt</th><th>Dara</th><th>Net</th><th>Fiyat</th><th>Tutar</th><th></th></tr></thead>
+              <thead><tr><th>Sınıf</th><th>Ölçülen</th><th>Dara</th><th>Net</th><th>Fiyat</th><th>Tutar</th><th></th></tr></thead>
               <tbody>
                 {items.map((it) => (
                   <tr key={it.id}>
                     <td><span className="zk-badge zk-badge-blue">{it.grade}</span></td>
                     <td>{fmtKg(it.grossKg ?? it.kg)}</td>
-                    <td>{fmtKg(it.dara || 0)}</td>
+                    <td>{fmtKg(it.dara || 0)}{it.crateCount != null ? ` (${it.crateCount} kasa)` : ''}</td>
                     <td style={{ fontWeight: 600 }}>{fmtKg(it.kg)}</td>
                     <td>{fmtTL(it.pricePerKg)}/kg</td>
                     <td>{fmtTL(it.amount)}</td>
@@ -852,22 +974,39 @@ function PurchaseTab({ farmers, setFarmers, purchases, setPurchases, onPrintRece
             Alımı kaydet
           </button>
 
-          {lastSaved && (
-            <div style={{ marginTop: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: COLORS.oliveSoft, padding: '10px 12px', borderRadius: 8 }}>
-              <span style={{ fontSize: 12, color: COLORS.olive }}>Alım #{lastSaved.makbuzNo} kaydedildi.</span>
-              <button className="zk-btn zk-btn-secondary" onClick={() => onPrintReceipt(lastSaved)}><Printer size={13} /> Müstahsil makbuzu yazdır</button>
-            </div>
-          )}
+          {lastSaved && (() => {
+            const lastSavedFarmer = farmers.find((f) => f.id === lastSaved.farmerId);
+            const waPhone = lastSavedFarmer ? formatPhoneForWhatsApp(lastSavedFarmer.phone) : null;
+            const waHref = waPhone
+              ? `https://wa.me/${waPhone}?text=${encodeURIComponent(buildWhatsAppReceiptText(lastSaved, lastSavedFarmer, settings))}`
+              : null;
+            return (
+              <div style={{ marginTop: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: COLORS.oliveSoft, padding: '10px 12px', borderRadius: 8, flexWrap: 'wrap', gap: 8 }}>
+                <span style={{ fontSize: 12, color: COLORS.olive }}>Alım #{lastSaved.makbuzNo} kaydedildi.</span>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button className="zk-btn zk-btn-secondary" onClick={() => onPrintReceipt(lastSaved)}><Printer size={13} /> Yazdır</button>
+                  {waHref ? (
+                    <a className="zk-btn" style={{ background: '#25D366', color: '#fff' }} href={waHref} target="_blank" rel="noopener noreferrer">
+                      <MessageCircle size={13} /> WhatsApp'tan gönder
+                    </a>
+                  ) : (
+                    <span style={{ fontSize: 11, color: COLORS.inkSoft, alignSelf: 'center' }}>Çiftçinin telefonu kayıtlı değil</span>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
         </div>
       </div>
 
       {showAddFarmer && <AddFarmerModal onClose={() => setShowAddFarmer(false)} onSave={saveNewFarmer} />}
       {showAddPersonnel && <AddPersonnelModal onClose={() => setShowAddPersonnel(false)} onSave={saveNewPersonnel} />}
+      {showAddVehicle && <AddVehicleModal onClose={() => setShowAddVehicle(false)} onSave={saveNewVehicle} personnel={personnel} />}
     </div>
   );
 }
 
-function WarehouseTab({ purchases, buyers, setBuyers, sales, setSales }) {
+function WarehouseTab({ purchases, buyers, setBuyers, sales, setSales, vehicles, setVehicles, personnel }) {
   const [showAddBuyer, setShowAddBuyer] = useState(false);
   const [buyerName, setBuyerName] = useState('');
   const [buyerPhone, setBuyerPhone] = useState('');
@@ -878,6 +1017,8 @@ function WarehouseTab({ purchases, buyers, setBuyers, sales, setSales }) {
   const [kg, setKg] = useState('');
   const [pricePerKg, setPricePerKg] = useState('');
   const [note, setNote] = useState('');
+  const [vehicleId, setVehicleId] = useState('');
+  const [showAddVehicle, setShowAddVehicle] = useState(false);
 
   const totalPurchasedKg = purchases.reduce((s, p) => s + p.netKg, 0);
   const totalSoldKg = sales.reduce((s, s2) => s + s2.kg, 0);
@@ -916,9 +1057,25 @@ function WarehouseTab({ purchases, buyers, setBuyers, sales, setSales }) {
     setBuyerId(b.id);
   };
 
+  const handleVehicleSelect = (value) => {
+    if (value === '__add_new__') { setShowAddVehicle(true); return; }
+    setVehicleId(value);
+  };
+
+  const saveNewVehicle = async (data) => {
+    if (!data.plaka || !data.plaka.trim()) return;
+    const newVehicle = { id: uid(), plaka: data.plaka.trim(), marka: data.marka || '', kapasite: data.kapasite || 0, defaultPersonnelId: data.defaultPersonnelId || '', createdAt: Date.now() };
+    const next = [...vehicles, newVehicle];
+    setVehicles(next);
+    await storageSet('zk:vehicles', next);
+    setShowAddVehicle(false);
+    setVehicleId(newVehicle.id);
+  };
+
   const saveSale = async () => {
     if (!canSave) return;
-    const record = { id: uid(), buyerId, date, grade, kg: parseFloat(kg), pricePerKg: parseFloat(pricePerKg), amount, note, createdAt: Date.now() };
+    const vehicle = vehicles.find((v) => v.id === vehicleId);
+    const record = { id: uid(), buyerId, date, grade, kg: parseFloat(kg), pricePerKg: parseFloat(pricePerKg), amount, note, vehicleId: vehicleId || null, vehiclePlaka: vehicle ? vehicle.plaka : '', createdAt: Date.now() };
     const next = [...sales, record];
     setSales(next);
     await storageSet('zk:sales', next);
@@ -974,6 +1131,14 @@ function WarehouseTab({ purchases, buyers, setBuyers, sales, setSales }) {
               <input className="zk-input" type="number" value={pricePerKg} onChange={(e) => setPricePerKg(e.target.value)} placeholder="0.00" />
             </div>
           </div>
+          <div style={{ marginBottom: 10 }}>
+            <label className="zk-label">Teslimatı yapan araç (opsiyonel)</label>
+            <select className="zk-select" value={vehicleId} onChange={(e) => handleVehicleSelect(e.target.value)}>
+              <option value="">Seçin...</option>
+              {vehicles.map((v) => <option key={v.id} value={v.id}>{v.plaka}</option>)}
+              <option value="__add_new__">+ Yeni araç ekle</option>
+            </select>
+          </div>
           <div style={{ marginBottom: 12 }}>
             <label className="zk-label">Not</label>
             <input className="zk-input" value={note} onChange={(e) => setNote(e.target.value)} placeholder="opsiyonel" />
@@ -1013,7 +1178,7 @@ function WarehouseTab({ purchases, buyers, setBuyers, sales, setSales }) {
           <div className="zk-empty">Henüz satış kaydı yok.</div>
         ) : (
           <table className="zk-table">
-            <thead><tr><th>Tarih</th><th>Alıcı</th><th>Sınıf</th><th>Kg</th><th>Fiyat</th><th>Tutar</th></tr></thead>
+            <thead><tr><th>Tarih</th><th>Alıcı</th><th>Sınıf</th><th>Kg</th><th>Fiyat</th><th>Tutar</th><th>Araç</th></tr></thead>
             <tbody>
               {recentSales.map((s) => {
                 const b = buyers.find((x) => x.id === s.buyerId);
@@ -1025,6 +1190,7 @@ function WarehouseTab({ purchases, buyers, setBuyers, sales, setSales }) {
                     <td>{fmtKg(s.kg)}</td>
                     <td>{fmtTL(s.pricePerKg)}/kg</td>
                     <td>{fmtTL(s.amount)}</td>
+                    <td style={{ color: COLORS.inkSoft }}>{s.vehiclePlaka || '—'}</td>
                   </tr>
                 );
               })}
@@ -1046,13 +1212,599 @@ function WarehouseTab({ purchases, buyers, setBuyers, sales, setSales }) {
           <button className="zk-btn zk-btn-primary" style={{ width: '100%', justifyContent: 'center' }} onClick={addBuyer}>Kaydet</button>
         </Modal>
       )}
+      {showAddVehicle && <AddVehicleModal onClose={() => setShowAddVehicle(false)} onSave={saveNewVehicle} personnel={personnel} />}
     </div>
   );
 }
 
-function LedgerTab({ farmers, purchases, payments, setPayments, selectedFarmerId, setSelectedFarmerId, onPrintReceipt }) {
+const EXPENSE_CATEGORIES = ['Nakliye', 'İşçilik', 'Depo kirası', 'Elektrik', 'Yakıt', 'Bakım/onarım', 'Diğer'];
+
+function ExpensesTab({ expenses, setExpenses }) {
+  const [date, setDate] = useState(todayStr());
+  const [category, setCategory] = useState(EXPENSE_CATEGORIES[0]);
+  const [amount, setAmount] = useState('');
+  const [note, setNote] = useState('');
+  const [range, setRange] = useState('month');
+
+  const filtered = useMemo(() => {
+    const now = new Date();
+    return expenses.filter((e) => {
+      const d = new Date(e.date);
+      if (range === 'today') return e.date === todayStr();
+      if (range === 'month') return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+      return true;
+    });
+  }, [expenses, range]);
+
+  const total = filtered.reduce((s, e) => s + e.amount, 0);
+
+  const byCategory = useMemo(() => {
+    const map = {};
+    filtered.forEach((e) => { map[e.category] = (map[e.category] || 0) + e.amount; });
+    return Object.entries(map).sort((a, b) => b[1] - a[1]);
+  }, [filtered]);
+
+  const save = async () => {
+    const amt = parseFloat(amount);
+    if (!amt || amt <= 0) return;
+    const record = { id: uid(), date, category, amount: amt, note, createdAt: Date.now() };
+    const next = [...expenses, record];
+    setExpenses(next);
+    await storageSet('zk:expenses', next);
+    setAmount(''); setNote('');
+  };
+
+  const removeExpense = async (id) => {
+    const next = expenses.filter((e) => e.id !== id);
+    setExpenses(next);
+    await storageSet('zk:expenses', next);
+  };
+
+  return (
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <div>
+          <div className="zk-h1">Giderler</div>
+          <div className="zk-h1-sub">Nakliye, işçilik, depo gibi işletme giderleri</div>
+        </div>
+        <select className="zk-select" style={{ width: 130 }} value={range} onChange={(e) => setRange(e.target.value)}>
+          <option value="today">Bugün</option>
+          <option value="month">Bu ay</option>
+          <option value="all">Tümü</option>
+        </select>
+      </div>
+
+      <div className="zk-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(150px,1fr))', marginBottom: 18 }}>
+        <StatCard label="Toplam gider" value={fmtTL(total)} tone={COLORS.red} />
+        <StatCard label="Kayıt sayısı" value={filtered.length} />
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, alignItems: 'start' }}>
+        <div className="zk-card">
+          <div style={{ fontSize: 13.5, fontWeight: 700, marginBottom: 12 }}>Yeni gider ekle</div>
+          <div className="zk-grid" style={{ gridTemplateColumns: '1fr 1fr', marginBottom: 10 }}>
+            <div>
+              <label className="zk-label">Kategori</label>
+              <select className="zk-select" value={category} onChange={(e) => setCategory(e.target.value)}>
+                {EXPENSE_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="zk-label">Tarih</label>
+              <input className="zk-input" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+            </div>
+          </div>
+          <div style={{ marginBottom: 10 }}>
+            <label className="zk-label">Tutar (TL)</label>
+            <input className="zk-input" type="number" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0.00" />
+          </div>
+          <div style={{ marginBottom: 12 }}>
+            <label className="zk-label">Not</label>
+            <input className="zk-input" value={note} onChange={(e) => setNote(e.target.value)} placeholder="opsiyonel" />
+          </div>
+          <button className="zk-btn zk-btn-primary" style={{ width: '100%', justifyContent: 'center' }} onClick={save}>Kaydet</button>
+        </div>
+
+        <div className="zk-card">
+          <div style={{ fontSize: 13.5, fontWeight: 700, marginBottom: 10 }}>Kategori bazında dağılım</div>
+          {byCategory.length === 0 ? (
+            <div className="zk-empty">Kayıt yok.</div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {byCategory.map(([cat, amt]) => (
+                <div key={cat} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12.5 }}>
+                  <span className="zk-badge zk-badge-red">{cat}</span>
+                  <span style={{ fontWeight: 600 }}>{fmtTL(amt)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="zk-card" style={{ marginTop: 16 }}>
+        <div style={{ fontSize: 13.5, fontWeight: 700, marginBottom: 10 }}>Gider kayıtları</div>
+        {filtered.length === 0 ? (
+          <div className="zk-empty">Kayıt yok.</div>
+        ) : (
+          <table className="zk-table">
+            <thead><tr><th>Tarih</th><th>Kategori</th><th>Not</th><th>Tutar</th><th></th></tr></thead>
+            <tbody>
+              {[...filtered].reverse().map((e) => (
+                <tr key={e.id}>
+                  <td>{fmtDate(e.date)}</td>
+                  <td><span className="zk-badge zk-badge-red">{e.category}</span></td>
+                  <td style={{ color: COLORS.inkSoft }}>{e.note || '—'}</td>
+                  <td style={{ fontWeight: 600 }}>{fmtTL(e.amount)}</td>
+                  <td><button className="zk-btn zk-btn-secondary" style={{ padding: '5px 9px' }} onClick={() => removeExpense(e.id)}><X size={12} /></button></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function CashTab({ settings, setSettings, payments, expenses, cashEntries, setCashEntries, farmers }) {
+  const [openingBalance, setOpeningBalance] = useState(settings.openingCashBalance ?? 0);
+  const [entryType, setEntryType] = useState('giris');
+  const [entryAmount, setEntryAmount] = useState('');
+  const [entryNote, setEntryNote] = useState('');
+
+  const saveOpening = async () => {
+    const next = { ...settings, openingCashBalance: parseFloat(openingBalance) || 0 };
+    setSettings(next);
+    await storageSet('zk:settings', next);
+  };
+
+  const addEntry = async () => {
+    const amt = parseFloat(entryAmount);
+    if (!amt || amt <= 0) return;
+    const record = { id: uid(), date: todayStr(), type: entryType, amount: amt, note: entryNote, createdAt: Date.now() };
+    const next = [...cashEntries, record];
+    setCashEntries(next);
+    await storageSet('zk:cashEntries', next);
+    setEntryAmount(''); setEntryNote('');
+  };
+
+  const movements = useMemo(() => {
+    const manual = cashEntries.map((e) => ({
+      date: e.date, createdAt: e.createdAt,
+      amount: e.type === 'giris' ? e.amount : -e.amount,
+      label: e.type === 'giris' ? 'Manuel giriş' : 'Manuel çıkış',
+      note: e.note,
+    }));
+    const pay = payments.map((p) => {
+      const f = farmers.find((x) => x.id === p.farmerId);
+      return {
+        date: p.date, createdAt: p.createdAt,
+        amount: -p.amount,
+        label: p.payType === 'avans' ? 'Avans' : 'Çiftçi ödemesi',
+        note: f ? f.name : '',
+      };
+    });
+    const exp = expenses.map((e) => ({
+      date: e.date, createdAt: e.createdAt, amount: -e.amount, label: 'Gider', note: e.category,
+    }));
+    return [...manual, ...pay, ...exp].sort((a, b) => a.createdAt - b.createdAt);
+  }, [cashEntries, payments, expenses, farmers]);
+
+  const opening = settings.openingCashBalance ?? 0;
+  let running = opening;
+  const withRunning = movements.map((m) => { running += m.amount; return { ...m, running }; });
+  const currentBalance = running;
+
+  const removeEntry = async (id) => {
+    const next = cashEntries.filter((e) => e.id !== id);
+    setCashEntries(next);
+    await storageSet('zk:cashEntries', next);
+  };
+
+  return (
+    <div>
+      <div className="zk-h1">Kasa</div>
+      <div className="zk-h1-sub">Nakit takibi — çiftçi ödemeleri/avanslar ve giderler otomatik düşülür</div>
+
+      <div className="zk-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(150px,1fr))', marginBottom: 18 }}>
+        <StatCard label="Güncel kasa bakiyesi" value={fmtTL(currentBalance)} tone={currentBalance < 0 ? COLORS.red : COLORS.olive} />
+        <StatCard label="Açılış bakiyesi" value={fmtTL(opening)} />
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, alignItems: 'start', marginBottom: 16 }}>
+        <div className="zk-card">
+          <div style={{ fontSize: 13.5, fontWeight: 700, marginBottom: 12 }}>Açılış bakiyesi</div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <input className="zk-input" type="number" value={openingBalance} onChange={(e) => setOpeningBalance(e.target.value)} />
+            <button className="zk-btn zk-btn-primary" onClick={saveOpening}>Kaydet</button>
+          </div>
+        </div>
+
+        <div className="zk-card">
+          <div style={{ fontSize: 13.5, fontWeight: 700, marginBottom: 12 }}>Manuel kasa hareketi ekle</div>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
+            <select className="zk-select" value={entryType} onChange={(e) => setEntryType(e.target.value)} style={{ maxWidth: 120 }}>
+              <option value="giris">Giriş</option>
+              <option value="cikis">Çıkış</option>
+            </select>
+            <input className="zk-input" type="number" placeholder="Tutar" value={entryAmount} onChange={(e) => setEntryAmount(e.target.value)} style={{ maxWidth: 130 }} />
+            <input className="zk-input" placeholder="Not (örn. satış tahsilatı)" value={entryNote} onChange={(e) => setEntryNote(e.target.value)} style={{ flex: 1, minWidth: 130 }} />
+          </div>
+          <button className="zk-btn zk-btn-gold" style={{ width: '100%', justifyContent: 'center' }} onClick={addEntry}>Ekle</button>
+        </div>
+      </div>
+
+      <div className="zk-card">
+        <div style={{ fontSize: 13.5, fontWeight: 700, marginBottom: 10 }}>Kasa hareketleri</div>
+        {withRunning.length === 0 ? (
+          <div className="zk-empty">Hareket yok.</div>
+        ) : (
+          <table className="zk-table">
+            <thead><tr><th>Tarih</th><th>İşlem</th><th>Tutar</th><th>Bakiye</th></tr></thead>
+            <tbody>
+              {withRunning.slice().reverse().map((m, i) => (
+                <tr key={i}>
+                  <td>{fmtDate(m.date)}</td>
+                  <td><span className={`zk-badge ${m.amount >= 0 ? 'zk-badge-olive' : 'zk-badge-red'}`}>{m.label}{m.note ? ` · ${m.note}` : ''}</span></td>
+                  <td style={{ fontWeight: 600, color: m.amount >= 0 ? COLORS.olive : COLORS.red }}>{m.amount >= 0 ? '+' : ''}{fmtTL(m.amount)}</td>
+                  <td style={{ fontWeight: 600 }}>{fmtTL(m.running)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function AllPurchasesTab({ farmers, purchases, personnel, onPrintReceipt, settings }) {
+  const [query, setQuery] = useState('');
+  const [farmerFilter, setFarmerFilter] = useState('');
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState('');
+
+  const filtered = useMemo(() => {
+    return purchases.filter((p) => {
+      if (farmerFilter && p.farmerId !== farmerFilter) return false;
+      if (fromDate && p.date < fromDate) return false;
+      if (toDate && p.date > toDate) return false;
+      if (query) {
+        const f = farmers.find((x) => x.id === p.farmerId);
+        const haystack = [
+          f?.name || '', p.note || '', String(p.makbuzNo),
+          ...(p.items || []).map((it) => it.grade),
+        ].join(' ').toLowerCase();
+        if (!haystack.includes(query.toLowerCase())) return false;
+      }
+      return true;
+    }).sort((a, b) => b.createdAt - a.createdAt);
+  }, [purchases, farmerFilter, fromDate, toDate, query, farmers]);
+
+  const totalKg = filtered.reduce((s, p) => s + p.netKg, 0);
+  const totalAmount = filtered.reduce((s, p) => s + p.netPayment, 0);
+
+  return (
+    <div>
+      <div className="zk-h1">Tüm alımlar</div>
+      <div className="zk-h1-sub">{filtered.length} kayıt · {fmtKg(totalKg)} · {fmtTL(totalAmount)}</div>
+
+      <div className="zk-card" style={{ marginBottom: 16 }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+          <div style={{ position: 'relative', flex: '2 1 200px' }}>
+            <Search size={15} style={{ position: 'absolute', left: 10, top: 14, color: COLORS.inkSoft }} />
+            <input className="zk-input" style={{ paddingLeft: 32 }} placeholder="Çiftçi, sınıf, not, makbuz no ara..." value={query} onChange={(e) => setQuery(e.target.value)} />
+          </div>
+          <select className="zk-select" style={{ flex: '1 1 140px' }} value={farmerFilter} onChange={(e) => setFarmerFilter(e.target.value)}>
+            <option value="">Tüm çiftçiler</option>
+            {farmers.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
+          </select>
+          <input className="zk-input" type="date" style={{ flex: '1 1 140px' }} value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
+          <input className="zk-input" type="date" style={{ flex: '1 1 140px' }} value={toDate} onChange={(e) => setToDate(e.target.value)} />
+        </div>
+      </div>
+
+      <div className="zk-card">
+        {filtered.length === 0 ? (
+          <div className="zk-empty"><Package size={26} className="zk-empty-icon" /><br/>Kayıt bulunamadı.</div>
+        ) : (
+          <table className="zk-table">
+            <thead><tr><th>No</th><th>Tarih</th><th>Çiftçi</th><th>Personel</th><th>Araç</th><th>Sınıflar</th><th>Net kg</th><th>Net ödeme</th><th></th></tr></thead>
+            <tbody>
+              {filtered.map((p) => {
+                const f = farmers.find((x) => x.id === p.farmerId);
+                const waPhone = f ? formatPhoneForWhatsApp(f.phone) : null;
+                return (
+                  <tr key={p.id}>
+                    <td>#{p.makbuzNo}</td>
+                    <td>{fmtDate(p.date)}{p.time ? ` · ${p.time}` : ''}</td>
+                    <td>{f ? f.name : '—'}</td>
+                    <td style={{ color: COLORS.inkSoft }}>{p.personnelName || '—'}</td>
+                    <td style={{ color: COLORS.inkSoft }}>{p.vehiclePlaka || '—'}</td>
+                    <td style={{ fontSize: 11.5, color: COLORS.inkSoft }}>{(p.items || []).map((it) => it.grade).join(', ')}</td>
+                    <td>{fmtKg(p.netKg)}</td>
+                    <td style={{ fontWeight: 600 }}>{fmtTL(p.netPayment)}</td>
+                    <td style={{ display: 'flex', gap: 6 }}>
+                      <button className="zk-btn zk-btn-secondary" style={{ padding: '5px 9px' }} onClick={() => onPrintReceipt(p)}><Printer size={12} /></button>
+                      {waPhone && (
+                        <a className="zk-btn" style={{ padding: '5px 9px', background: '#25D366', color: '#fff' }} href={`https://wa.me/${waPhone}?text=${encodeURIComponent(buildWhatsAppReceiptText(p, f, settings))}`} target="_blank" rel="noopener noreferrer">
+                          <MessageCircle size={12} />
+                        </a>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function FleetTab({ vehicles, setVehicles, personnel, setPersonnel, purchases, sales, farmers, buyers }) {
+  const [view, setView] = useState('vehicles');
+  const [selectedVehicleId, setSelectedVehicleId] = useState('');
+  const [selectedPersonnelId, setSelectedPersonnelId] = useState('');
+  const [showAddVehicle, setShowAddVehicle] = useState(false);
+  const [showAddPersonnel, setShowAddPersonnel] = useState(false);
+
+  const addVehicle = async (data) => {
+    if (!data.plaka || !data.plaka.trim()) return;
+    const newVehicle = { id: uid(), plaka: data.plaka.trim(), marka: data.marka || '', kapasite: data.kapasite || 0, defaultPersonnelId: data.defaultPersonnelId || '', createdAt: Date.now() };
+    const next = [...vehicles, newVehicle];
+    setVehicles(next);
+    await storageSet('zk:vehicles', next);
+    setShowAddVehicle(false);
+  };
+
+  const addPersonnel = async (data) => {
+    if (!data.name || !data.name.trim()) return;
+    const newPerson = { id: uid(), name: data.name.trim(), phone: data.phone || '', role: data.role || '', createdAt: Date.now() };
+    const next = [...personnel, newPerson];
+    setPersonnel(next);
+    await storageSet('zk:personnel', next);
+    setShowAddPersonnel(false);
+  };
+
+  const vehicleStats = useMemo(() => {
+    const map = {};
+    vehicles.forEach((v) => { map[v.id] = { pickups: 0, pickupKg: 0, deliveries: 0, deliveryKg: 0 }; });
+    purchases.forEach((p) => {
+      if (p.vehicleId && map[p.vehicleId]) { map[p.vehicleId].pickups += 1; map[p.vehicleId].pickupKg += p.netKg; }
+    });
+    sales.forEach((s) => {
+      if (s.vehicleId && map[s.vehicleId]) { map[s.vehicleId].deliveries += 1; map[s.vehicleId].deliveryKg += s.kg; }
+    });
+    return map;
+  }, [vehicles, purchases, sales]);
+
+  const personnelStats = useMemo(() => {
+    const map = {};
+    personnel.forEach((p) => { map[p.id] = { count: 0, kg: 0, amount: 0 }; });
+    purchases.forEach((p) => {
+      if (p.personnelId && map[p.personnelId]) { map[p.personnelId].count += 1; map[p.personnelId].kg += p.netKg; map[p.personnelId].amount += p.netPayment; }
+    });
+    return map;
+  }, [personnel, purchases]);
+
+  const selectedVehicle = vehicles.find((v) => v.id === selectedVehicleId);
+  const selectedPersonnel = personnel.find((p) => p.id === selectedPersonnelId);
+
+  const vehiclePickups = selectedVehicle ? purchases.filter((p) => p.vehicleId === selectedVehicle.id).sort((a, b) => b.createdAt - a.createdAt) : [];
+  const vehicleDeliveries = selectedVehicle ? sales.filter((s) => s.vehicleId === selectedVehicle.id).sort((a, b) => b.createdAt - a.createdAt) : [];
+  const personnelPickups = selectedPersonnel ? purchases.filter((p) => p.personnelId === selectedPersonnel.id).sort((a, b) => b.createdAt - a.createdAt) : [];
+
+  return (
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 10 }}>
+        <div>
+          <div className="zk-h1">Filo & Personel</div>
+          <div className="zk-h1-sub">Hangi araç/personel nereden ne kadar topladı, kime teslim etti</div>
+        </div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button className={`zk-btn ${view === 'vehicles' ? 'zk-btn-primary' : 'zk-btn-secondary'}`} onClick={() => { setView('vehicles'); setSelectedPersonnelId(''); }}>
+            <Truck size={14} /> Araçlar
+          </button>
+          <button className={`zk-btn ${view === 'personnel' ? 'zk-btn-primary' : 'zk-btn-secondary'}`} onClick={() => { setView('personnel'); setSelectedVehicleId(''); }}>
+            <IdCard size={14} /> Personel
+          </button>
+        </div>
+      </div>
+
+      {view === 'vehicles' && !selectedVehicle && (
+        <div className="zk-card" style={{ marginTop: 16 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+            <div style={{ fontSize: 13.5, fontWeight: 700 }}>Araç listesi</div>
+            <button className="zk-btn zk-btn-gold" onClick={() => setShowAddVehicle(true)}><Plus size={14} /> Araç ekle</button>
+          </div>
+          {vehicles.length === 0 ? (
+            <div className="zk-empty"><Truck size={26} className="zk-empty-icon" /><br/>Henüz araç eklenmedi.</div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              {vehicles.map((v) => {
+                const stat = vehicleStats[v.id] || { pickups: 0, pickupKg: 0, deliveries: 0, deliveryKg: 0 };
+                const driver = personnel.find((p) => p.id === v.defaultPersonnelId);
+                return (
+                  <div key={v.id} className="zk-farmer-row" onClick={() => setSelectedVehicleId(v.id)}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                      <div className="zk-avatar"><Truck size={16} /></div>
+                      <div>
+                        <div style={{ fontWeight: 700, fontSize: 13.5 }}>{v.plaka}</div>
+                        <div style={{ fontSize: 11.5, color: COLORS.inkSoft }}>
+                          {v.marka && `${v.marka} · `}{v.kapasite ? `${fmtKg(v.kapasite)} kapasite · ` : ''}{driver ? `Sürücü: ${driver.name}` : 'Sürücü atanmadı'}
+                        </div>
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <span className="zk-badge zk-badge-olive">{fmtKg(stat.pickupKg)} topladı</span>
+                      <span className="zk-badge zk-badge-blue">{fmtKg(stat.deliveryKg)} teslim etti</span>
+                      <ChevronRight size={16} color={COLORS.inkSoft} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {view === 'vehicles' && selectedVehicle && (
+        <div style={{ marginTop: 16 }}>
+          <button className="zk-btn zk-btn-secondary" style={{ marginBottom: 14 }} onClick={() => setSelectedVehicleId('')}>← Araç listesine dön</button>
+          <div className="zk-h1" style={{ fontSize: 20 }}>{selectedVehicle.plaka}</div>
+          <div className="zk-h1-sub">
+            {selectedVehicle.marka && `${selectedVehicle.marka} · `}
+            {personnel.find((p) => p.id === selectedVehicle.defaultPersonnelId)?.name ? `Varsayılan sürücü: ${personnel.find((p) => p.id === selectedVehicle.defaultPersonnelId).name}` : 'Sürücü atanmadı'}
+          </div>
+
+          <div className="zk-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(150px,1fr))', marginBottom: 18 }}>
+            <StatCard label="Toplama sayısı" value={vehiclePickups.length} icon={Package} />
+            <StatCard label="Toplam toplanan" value={fmtKg(vehicleStats[selectedVehicle.id]?.pickupKg || 0)} tone={COLORS.olive} />
+            <StatCard label="Teslimat sayısı" value={vehicleDeliveries.length} icon={ShoppingCart} />
+            <StatCard label="Toplam teslim edilen" value={fmtKg(vehicleStats[selectedVehicle.id]?.deliveryKg || 0)} tone={COLORS.blue} />
+          </div>
+
+          <div className="zk-card" style={{ marginBottom: 16 }}>
+            <div style={{ fontSize: 13.5, fontWeight: 700, marginBottom: 10 }}>Toplama geçmişi — nereden ne kadar aldı</div>
+            {vehiclePickups.length === 0 ? (
+              <div className="zk-empty">Bu araca bağlı toplama kaydı yok.</div>
+            ) : (
+              <table className="zk-table">
+                <thead><tr><th>Tarih</th><th>Çiftçi</th><th>Personel</th><th>Sınıflar</th><th>Net kg</th></tr></thead>
+                <tbody>
+                  {vehiclePickups.map((p) => {
+                    const f = farmers.find((x) => x.id === p.farmerId);
+                    return (
+                      <tr key={p.id}>
+                        <td>{fmtDate(p.date)}{p.time ? ` · ${p.time}` : ''}</td>
+                        <td>{f ? f.name : '—'}</td>
+                        <td style={{ color: COLORS.inkSoft }}>{p.personnelName || '—'}</td>
+                        <td style={{ fontSize: 11.5, color: COLORS.inkSoft }}>{(p.items || []).map((it) => it.grade).join(', ')}</td>
+                        <td style={{ fontWeight: 600 }}>{fmtKg(p.netKg)}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
+          </div>
+
+          <div className="zk-card">
+            <div style={{ fontSize: 13.5, fontWeight: 700, marginBottom: 10 }}>Teslimat geçmişi — kime götürdü</div>
+            {vehicleDeliveries.length === 0 ? (
+              <div className="zk-empty">Bu araca bağlı teslimat kaydı yok.</div>
+            ) : (
+              <table className="zk-table">
+                <thead><tr><th>Tarih</th><th>Alıcı</th><th>Sınıf</th><th>Kg</th><th>Tutar</th></tr></thead>
+                <tbody>
+                  {vehicleDeliveries.map((s) => {
+                    const b = buyers.find((x) => x.id === s.buyerId);
+                    return (
+                      <tr key={s.id}>
+                        <td>{fmtDate(s.date)}</td>
+                        <td>{b ? b.name : '—'}</td>
+                        <td><span className="zk-badge zk-badge-blue">{s.grade || '—'}</span></td>
+                        <td>{fmtKg(s.kg)}</td>
+                        <td style={{ fontWeight: 600 }}>{fmtTL(s.amount)}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </div>
+      )}
+
+      {view === 'personnel' && !selectedPersonnel && (
+        <div className="zk-card" style={{ marginTop: 16 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+            <div style={{ fontSize: 13.5, fontWeight: 700 }}>Personel listesi</div>
+            <button className="zk-btn zk-btn-gold" onClick={() => setShowAddPersonnel(true)}><Plus size={14} /> Personel ekle</button>
+          </div>
+          {personnel.length === 0 ? (
+            <div className="zk-empty"><IdCard size={26} className="zk-empty-icon" /><br/>Henüz personel eklenmedi.</div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              {personnel.map((p) => {
+                const stat = personnelStats[p.id] || { count: 0, kg: 0, amount: 0 };
+                return (
+                  <div key={p.id} className="zk-farmer-row" onClick={() => setSelectedPersonnelId(p.id)}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                      <div className="zk-avatar">{p.name.split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase()}</div>
+                      <div>
+                        <div style={{ fontWeight: 700, fontSize: 13.5 }}>{p.name}</div>
+                        <div style={{ fontSize: 11.5, color: COLORS.inkSoft }}>
+                          {p.role && `${p.role} · `}{p.phone || 'Telefon kayıtlı değil'}
+                        </div>
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <span className="zk-badge zk-badge-olive">{stat.count} alım</span>
+                      <span className="zk-badge zk-badge-gold">{fmtKg(stat.kg)}</span>
+                      <ChevronRight size={16} color={COLORS.inkSoft} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {view === 'personnel' && selectedPersonnel && (
+        <div style={{ marginTop: 16 }}>
+          <button className="zk-btn zk-btn-secondary" style={{ marginBottom: 14 }} onClick={() => setSelectedPersonnelId('')}>← Personel listesine dön</button>
+          <div className="zk-h1" style={{ fontSize: 20 }}>{selectedPersonnel.name}</div>
+          <div className="zk-h1-sub">{selectedPersonnel.role || 'Görev belirtilmedi'}{selectedPersonnel.phone ? ` · ${selectedPersonnel.phone}` : ''}</div>
+
+          <div className="zk-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(150px,1fr))', marginBottom: 18 }}>
+            <StatCard label="Toplam alım" value={personnelStats[selectedPersonnel.id]?.count || 0} icon={Package} />
+            <StatCard label="Toplam kg" value={fmtKg(personnelStats[selectedPersonnel.id]?.kg || 0)} tone={COLORS.olive} />
+            <StatCard label="Çiftçilere ödenen" value={fmtTL(personnelStats[selectedPersonnel.id]?.amount || 0)} tone={COLORS.gold} />
+          </div>
+
+          <div className="zk-card">
+            <div style={{ fontSize: 13.5, fontWeight: 700, marginBottom: 10 }}>Yaptığı alımlar</div>
+            {personnelPickups.length === 0 ? (
+              <div className="zk-empty">Bu personele bağlı alım kaydı yok.</div>
+            ) : (
+              <table className="zk-table">
+                <thead><tr><th>Tarih</th><th>Çiftçi</th><th>Araç</th><th>Sınıflar</th><th>Net kg</th><th>Net ödeme</th></tr></thead>
+                <tbody>
+                  {personnelPickups.map((p) => {
+                    const f = farmers.find((x) => x.id === p.farmerId);
+                    return (
+                      <tr key={p.id}>
+                        <td>{fmtDate(p.date)}{p.time ? ` · ${p.time}` : ''}</td>
+                        <td>{f ? f.name : '—'}</td>
+                        <td style={{ color: COLORS.inkSoft }}>{p.vehiclePlaka || '—'}</td>
+                        <td style={{ fontSize: 11.5, color: COLORS.inkSoft }}>{(p.items || []).map((it) => it.grade).join(', ')}</td>
+                        <td style={{ fontWeight: 600 }}>{fmtKg(p.netKg)}</td>
+                        <td>{fmtTL(p.netPayment)}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </div>
+      )}
+
+      {showAddVehicle && <AddVehicleModal onClose={() => setShowAddVehicle(false)} onSave={addVehicle} personnel={personnel} />}
+      {showAddPersonnel && <AddPersonnelModal onClose={() => setShowAddPersonnel(false)} onSave={addPersonnel} />}
+    </div>
+  );
+}
+
+function LedgerTab({ farmers, purchases, payments, setPayments, selectedFarmerId, setSelectedFarmerId, onPrintReceipt, settings }) {
   const [payAmount, setPayAmount] = useState('');
   const [payNote, setPayNote] = useState('');
+  const [payType, setPayType] = useState('odeme');
 
   const farmer = farmers.find((f) => f.id === selectedFarmerId);
 
@@ -1070,7 +1822,7 @@ function LedgerTab({ farmers, purchases, payments, setPayments, selectedFarmerId
   const addPayment = async () => {
     const amt = parseFloat(payAmount);
     if (!farmer || !amt || amt <= 0) return;
-    const record = { id: uid(), farmerId: farmer.id, date: todayStr(), amount: amt, note: payNote, createdAt: Date.now() };
+    const record = { id: uid(), farmerId: farmer.id, date: todayStr(), amount: amt, note: payNote, payType, createdAt: Date.now() };
     const next = [...payments, record];
     setPayments(next);
     await storageSet('zk:payments', next);
@@ -1111,10 +1863,14 @@ function LedgerTab({ farmers, purchases, payments, setPayments, selectedFarmerId
       </div>
 
       <div className="zk-card" style={{ marginBottom: 16 }}>
-        <div style={{ fontSize: 13.5, fontWeight: 700, marginBottom: 10 }}>Ödeme ekle</div>
-        <div style={{ display: 'flex', gap: 10 }}>
+        <div style={{ fontSize: 13.5, fontWeight: 700, marginBottom: 10 }}>Ödeme / avans ekle</div>
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+          <select className="zk-select" value={payType} onChange={(e) => setPayType(e.target.value)} style={{ maxWidth: 140 }}>
+            <option value="odeme">Ödeme</option>
+            <option value="avans">Avans</option>
+          </select>
           <input className="zk-input" type="number" placeholder="Tutar (TL)" value={payAmount} onChange={(e) => setPayAmount(e.target.value)} style={{ maxWidth: 160 }} />
-          <input className="zk-input" placeholder="Not (opsiyonel)" value={payNote} onChange={(e) => setPayNote(e.target.value)} />
+          <input className="zk-input" placeholder="Not (opsiyonel)" value={payNote} onChange={(e) => setPayNote(e.target.value)} style={{ flex: 1, minWidth: 140 }} />
           <button className="zk-btn zk-btn-primary" onClick={addPayment}>Ekle</button>
         </div>
       </div>
@@ -1133,7 +1889,7 @@ function LedgerTab({ farmers, purchases, payments, setPayments, selectedFarmerId
                   <td>
                     {e.type === 'purchase'
                       ? <span className="zk-badge zk-badge-olive">Alım · {fmtKg(e.data.netKg)}</span>
-                      : <span className="zk-badge zk-badge-gold">Ödeme{e.data.note ? ` · ${e.data.note}` : ''}</span>}
+                      : <span className={`zk-badge ${e.data.payType === 'avans' ? 'zk-badge-blue' : 'zk-badge-gold'}`}>{e.data.payType === 'avans' ? 'Avans' : 'Ödeme'}{e.data.note ? ` · ${e.data.note}` : ''}</span>}
                   </td>
                   <td style={{ color: e.amount >= 0 ? COLORS.olive : COLORS.gold, fontWeight: 600 }}>
                     {e.amount >= 0 ? '+' : ''}{fmtTL(e.amount)}
@@ -1141,7 +1897,14 @@ function LedgerTab({ farmers, purchases, payments, setPayments, selectedFarmerId
                   <td style={{ fontWeight: 600 }}>{fmtTL(e.running)}</td>
                   <td>
                     {e.type === 'purchase' && (
-                      <button className="zk-btn zk-btn-secondary" style={{ padding: '5px 9px' }} onClick={() => onPrintReceipt(e.data)}><Printer size={12} /></button>
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        <button className="zk-btn zk-btn-secondary" style={{ padding: '5px 9px' }} onClick={() => onPrintReceipt(e.data)}><Printer size={12} /></button>
+                        {formatPhoneForWhatsApp(farmer.phone) && (
+                          <a className="zk-btn" style={{ padding: '5px 9px', background: '#25D366', color: '#fff' }} href={`https://wa.me/${formatPhoneForWhatsApp(farmer.phone)}?text=${encodeURIComponent(buildWhatsAppReceiptText(e.data, farmer, settings))}`} target="_blank" rel="noopener noreferrer">
+                            <MessageCircle size={12} />
+                          </a>
+                        )}
+                      </div>
                     )}
                   </td>
                 </tr>
@@ -1154,8 +1917,11 @@ function LedgerTab({ farmers, purchases, payments, setPayments, selectedFarmerId
   );
 }
 
-function ReportsTab({ farmers, purchases, sales, buyers }) {
+function ReportsTab({ farmers, purchases, sales, buyers, expenses }) {
   const [range, setRange] = useState('month');
+  const currentYear = new Date().getFullYear();
+  const [yearA, setYearA] = useState(currentYear);
+  const [yearB, setYearB] = useState(currentYear - 1);
 
   const filtered = useMemo(() => {
     const now = new Date();
@@ -1177,12 +1943,45 @@ function ReportsTab({ farmers, purchases, sales, buyers }) {
     });
   }, [sales, range]);
 
+  const filteredExpenses = useMemo(() => {
+    const now = new Date();
+    return expenses.filter((e) => {
+      const d = new Date(e.date);
+      if (range === 'today') return e.date === todayStr();
+      if (range === 'month') return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+      return true;
+    });
+  }, [expenses, range]);
+
   const totalKg = filtered.reduce((s, p) => s + p.netKg, 0);
   const totalAmount = filtered.reduce((s, p) => s + p.amount, 0);
   const totalCommission = filtered.reduce((s, p) => s + p.commissionAmount, 0);
   const totalStopaj = filtered.reduce((s, p) => s + (p.stopajTutari || 0), 0);
   const totalPayable = filtered.reduce((s, p) => s + p.netPayment, 0);
   const totalSalesAmount = filteredSales.reduce((s, s2) => s + s2.amount, 0);
+  const totalExpenses = filteredExpenses.reduce((s, e) => s + e.amount, 0);
+  const estimatedProfit = totalCommission + totalSalesAmount - totalExpenses;
+
+  const yearStats = (year) => {
+    const yp = purchases.filter((p) => new Date(p.date).getFullYear() === year);
+    const ys = sales.filter((s) => new Date(s.date).getFullYear() === year);
+    const ye = expenses.filter((e) => new Date(e.date).getFullYear() === year);
+    return {
+      kg: yp.reduce((s, p) => s + p.netKg, 0),
+      purchaseAmount: yp.reduce((s, p) => s + p.netPayment, 0),
+      commission: yp.reduce((s, p) => s + p.commissionAmount, 0),
+      salesAmount: ys.reduce((s, s2) => s + s2.amount, 0),
+      expenseAmount: ye.reduce((s, e) => s + e.amount, 0),
+      count: yp.length,
+    };
+  };
+  const statsA = yearStats(parseInt(yearA, 10));
+  const statsB = yearStats(parseInt(yearB, 10));
+  const availableYears = useMemo(() => {
+    const years = new Set([currentYear]);
+    purchases.forEach((p) => years.add(new Date(p.date).getFullYear()));
+    return Array.from(years).sort((a, b) => b - a);
+  }, [purchases, currentYear]);
 
   const byFarmer = useMemo(() => {
     const map = {};
@@ -1267,6 +2066,10 @@ function ReportsTab({ farmers, purchases, sales, buyers }) {
     const wsSummary = XLSX.utils.json_to_sheet(summaryRows);
     XLSX.utils.book_append_sheet(wb, wsSummary, 'Ciftci Ozeti');
 
+    const expenseRows = filteredExpenses.map((e) => ({ 'Tarih': e.date, 'Kategori': e.category, 'Tutar': e.amount, 'Not': e.note || '' }));
+    const wsExpenses = XLSX.utils.json_to_sheet(expenseRows);
+    XLSX.utils.book_append_sheet(wb, wsExpenses, 'Giderler');
+
     XLSX.writeFile(wb, `zeytin-rapor-${todayStr()}.xlsx`);
   };
 
@@ -1294,6 +2097,37 @@ function ReportsTab({ farmers, purchases, sales, buyers }) {
         <StatCard label="Stopaj" value={fmtTL(totalStopaj)} tone={COLORS.blue} />
         <StatCard label="Çiftçilere ödenen" value={fmtTL(totalPayable)} tone={COLORS.olive} />
         <StatCard label="Satış tutarı" value={fmtTL(totalSalesAmount)} />
+        <StatCard label="Giderler" value={fmtTL(totalExpenses)} tone={COLORS.red} />
+        <StatCard label="Tahmini kâr" value={fmtTL(estimatedProfit)} tone={estimatedProfit >= 0 ? COLORS.olive : COLORS.red} />
+      </div>
+      <div style={{ fontSize: 11, color: COLORS.inkSoft, marginBottom: 16, marginTop: -8 }}>
+        Tahmini kâr = komisyon geliri + satış tutarı − giderler (kaba bir tahmindir, muhasebe kaydı yerine geçmez).
+      </div>
+
+      <div className="zk-card" style={{ marginBottom: 16 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
+          <div style={{ fontSize: 13.5, fontWeight: 700 }}>Dönem karşılaştırma</div>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 12.5 }}>
+            <select className="zk-select" style={{ width: 100 }} value={yearA} onChange={(e) => setYearA(e.target.value)}>
+              {availableYears.map((y) => <option key={y} value={y}>{y}</option>)}
+            </select>
+            <span style={{ color: COLORS.inkSoft }}>vs</span>
+            <select className="zk-select" style={{ width: 100 }} value={yearB} onChange={(e) => setYearB(e.target.value)}>
+              {availableYears.map((y) => <option key={y} value={y}>{y}</option>)}
+            </select>
+          </div>
+        </div>
+        <table className="zk-table">
+          <thead><tr><th></th><th>{yearA}</th><th>{yearB}</th></tr></thead>
+          <tbody>
+            <tr><td>Alım sayısı</td><td>{statsA.count}</td><td>{statsB.count}</td></tr>
+            <tr><td>Toplam kg</td><td>{fmtKg(statsA.kg)}</td><td>{fmtKg(statsB.kg)}</td></tr>
+            <tr><td>Çiftçilere ödenen</td><td>{fmtTL(statsA.purchaseAmount)}</td><td>{fmtTL(statsB.purchaseAmount)}</td></tr>
+            <tr><td>Komisyon geliri</td><td>{fmtTL(statsA.commission)}</td><td>{fmtTL(statsB.commission)}</td></tr>
+            <tr><td>Satış tutarı</td><td>{fmtTL(statsA.salesAmount)}</td><td>{fmtTL(statsB.salesAmount)}</td></tr>
+            <tr><td>Giderler</td><td>{fmtTL(statsA.expenseAmount)}</td><td>{fmtTL(statsB.expenseAmount)}</td></tr>
+          </tbody>
+        </table>
       </div>
 
       <div className="zk-card" style={{ marginBottom: 16 }}>
@@ -1417,15 +2251,20 @@ function VarietyEditor({ variety, onChange, onRemove }) {
   );
 }
 
-function SettingsTab({ settings, setSettings, priceList, setPriceList }) {
+function SettingsTab({ settings, setSettings, priceList, setPriceList, onBackup, onRestore, restoreStatus }) {
   const [businessName, setBusinessName] = useState(settings.businessName || '');
   const [taxNo, setTaxNo] = useState(settings.taxNo || '');
   const [address, setAddress] = useState(settings.address || '');
-  const [defaultTare, setDefaultTare] = useState(settings.defaultTare ?? 10);
+  const [crateWeight, setCrateWeight] = useState(settings.crateWeight ?? 2);
+  const [defaultCrateCount, setDefaultCrateCount] = useState(settings.defaultCrateCount ?? 5);
   const [newVarietyName, setNewVarietyName] = useState('');
 
   const save = async () => {
-    const next = { businessName, taxNo, address, defaultTare: parseFloat(defaultTare) || 0 };
+    const next = {
+      businessName, taxNo, address,
+      crateWeight: parseFloat(crateWeight) || 0,
+      defaultCrateCount: Math.max(0, Math.min(7, parseInt(defaultCrateCount, 10) || 0)),
+    };
     setSettings(next);
     await storageSet('zk:settings', next);
   };
@@ -1471,9 +2310,15 @@ function SettingsTab({ settings, setSettings, priceList, setPriceList }) {
             <input className="zk-input" value={address} onChange={(e) => setAddress(e.target.value)} />
           </div>
           <div style={{ marginBottom: 18 }}>
-            <label className="zk-label">Varsayılan dara (kg)</label>
-            <input className="zk-input" type="number" value={defaultTare} onChange={(e) => setDefaultTare(e.target.value)} placeholder="10" />
-            <div style={{ fontSize: 11, color: COLORS.inkSoft, marginTop: 4 }}>Alım ekranında her satıra otomatik gelir, orada değiştirilebilir.</div>
+            <label className="zk-label">Kasa ağırlığı (kg)</label>
+            <input className="zk-input" type="number" value={crateWeight} onChange={(e) => setCrateWeight(e.target.value)} placeholder="2" />
+          </div>
+          <div style={{ marginBottom: 18 }}>
+            <label className="zk-label">Varsayılan kasa sayısı (dara)</label>
+            <input className="zk-input" type="number" min="0" max="7" value={defaultCrateCount} onChange={(e) => setDefaultCrateCount(e.target.value)} placeholder="5" />
+            <div style={{ fontSize: 11, color: COLORS.inkSoft, marginTop: 4 }}>
+              Alım ekranında her satıra otomatik gelir ({defaultCrateCount || 0} kasa × {crateWeight || 0} kg = {((parseFloat(defaultCrateCount) || 0) * (parseFloat(crateWeight) || 0)).toFixed(1)} kg dara), orada değiştirilebilir. En fazla 7 kasa seçilebilir.
+            </div>
           </div>
           <button className="zk-btn zk-btn-primary" onClick={save}>Kaydet</button>
         </div>
@@ -1491,6 +2336,25 @@ function SettingsTab({ settings, setSettings, priceList, setPriceList }) {
             <input className="zk-input" value={newVarietyName} onChange={(e) => setNewVarietyName(e.target.value)} placeholder="örn. Edremit" />
             <button className="zk-btn zk-btn-gold" onClick={addVariety}><Plus size={13} /> Tür ekle</button>
           </div>
+        </div>
+
+        <div className="zk-card" style={{ gridColumn: '1 / -1' }}>
+          <div style={{ fontSize: 13.5, fontWeight: 700, marginBottom: 4 }}>Yedekleme</div>
+          <div style={{ fontSize: 11.5, color: COLORS.inkSoft, marginBottom: 14 }}>Tüm verileri (çiftçiler, alımlar, satışlar, giderler, ayarlar) tek bir dosyaya indirin veya daha önce indirdiğiniz bir yedeği geri yükleyin.</div>
+          <button className="zk-btn zk-btn-primary" onClick={onBackup} style={{ marginBottom: 12 }}><Download size={14} /> Yedeği indir (.json)</button>
+          <div>
+            <label className="zk-btn zk-btn-secondary" style={{ cursor: 'pointer', display: 'inline-flex' }}>
+              <Upload size={14} /> Yedekten geri yükle
+              <input
+                type="file"
+                accept="application/json"
+                style={{ display: 'none' }}
+                onChange={(e) => { if (e.target.files[0]) onRestore(e.target.files[0]); e.target.value = ''; }}
+              />
+            </label>
+          </div>
+          {restoreStatus && <div style={{ fontSize: 12, color: COLORS.olive, marginTop: 10 }}>{restoreStatus}</div>}
+          <div style={{ fontSize: 11, color: COLORS.red, marginTop: 10 }}>Geri yükleme, o an ekrandaki tüm verilerin üzerine yazar — dikkatli kullanın.</div>
         </div>
       </div>
     </div>
@@ -1570,13 +2434,17 @@ export default function ZeytinDefteri() {
   const [settings, setSettings] = useState({});
   const [priceList, setPriceList] = useState([]);
   const [personnel, setPersonnel] = useState([]);
+  const [vehicles, setVehicles] = useState([]);
+  const [expenses, setExpenses] = useState([]);
+  const [cashEntries, setCashEntries] = useState([]);
   const [selectedFarmerId, setSelectedFarmerId] = useState('');
   const [loaded, setLoaded] = useState(false);
   const [printTarget, setPrintTarget] = useState(null);
+  const [restoreStatus, setRestoreStatus] = useState('');
 
   useEffect(() => {
     (async () => {
-      const [f, p, pay, b, s, set, pl, per] = await Promise.all([
+      const [f, p, pay, b, s, set, pl, per, exp, cash, veh] = await Promise.all([
         storageGet('zk:farmers'),
         storageGet('zk:purchases'),
         storageGet('zk:payments'),
@@ -1585,10 +2453,14 @@ export default function ZeytinDefteri() {
         storageGet('zk:settings'),
         storageGet('zk:priceList'),
         storageGet('zk:personnel'),
+        storageGet('zk:expenses'),
+        storageGet('zk:cashEntries'),
+        storageGet('zk:vehicles'),
       ]);
       setFarmers(f || []); setPurchases(p || []); setPayments(pay || []);
       setBuyers(b || []); setSales(s || []); setSettings(set || {});
-      setPersonnel(per || []);
+      setPersonnel(per || []); setExpenses(exp || []); setCashEntries(cash || []);
+      setVehicles(veh || []);
       if (pl && pl.length > 0) {
         const normalized = pl.map((v) => ('grades' in v ? v : { id: v.id, name: v.name, hasGrades: false, singlePrice: v.price || 0, grades: [] }));
         setPriceList(normalized);
@@ -1620,12 +2492,48 @@ export default function ZeytinDefteri() {
     setTimeout(() => window.print(), 100);
   };
 
+  const backupData = () => {
+    const payload = { farmers, purchases, payments, buyers, sales, settings, priceList, personnel, expenses, cashEntries, vehicles, exportedAt: new Date().toISOString() };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `zeytin-defteri-yedek-${todayStr()}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const restoreData = async (file) => {
+    try {
+      const text = await file.text();
+      const data = JSON.parse(text);
+      const keys = ['farmers', 'purchases', 'payments', 'buyers', 'sales', 'settings', 'priceList', 'personnel', 'expenses', 'cashEntries', 'vehicles'];
+      for (const k of keys) {
+        if (data[k] !== undefined) await storageSet(`zk:${k}`, data[k]);
+      }
+      setFarmers(data.farmers || []); setPurchases(data.purchases || []); setPayments(data.payments || []);
+      setBuyers(data.buyers || []); setSales(data.sales || []); setSettings(data.settings || {});
+      setPriceList(data.priceList || []); setPersonnel(data.personnel || []);
+      setExpenses(data.expenses || []); setCashEntries(data.cashEntries || []);
+      setVehicles(data.vehicles || []);
+      setRestoreStatus('Yedek başarıyla geri yüklendi.');
+    } catch (e) {
+      setRestoreStatus('Dosya okunamadı, geçerli bir yedek dosyası seçin.');
+    }
+  };
+
   const navItems = [
     { key: 'dashboard', label: 'Pano', icon: LayoutDashboard },
     { key: 'farmers', label: 'Çiftçiler', icon: Users },
     { key: 'purchase', label: 'Alım', icon: ScaleIcon },
+    { key: 'allPurchases', label: 'Tüm alımlar', icon: ListChecks },
     { key: 'warehouse', label: 'Depo & satış', icon: Warehouse },
+    { key: 'fleet', label: 'Filo & personel', icon: Truck },
     { key: 'ledger', label: 'Cari hesap', icon: Wallet },
+    { key: 'expenses', label: 'Giderler', icon: Receipt },
+    { key: 'cash', label: 'Kasa', icon: Banknote },
     { key: 'reports', label: 'Raporlar', icon: FileBarChart },
     { key: 'settings', label: 'Ayarlar', icon: SettingsIcon },
   ];
@@ -1657,11 +2565,15 @@ export default function ZeytinDefteri() {
         <div className="zk-main">
           {tab === 'dashboard' && <DashboardTab farmers={farmers} purchases={purchases} payments={payments} sales={sales} setTab={setTab} />}
           {tab === 'farmers' && <FarmersTab farmers={farmers} setFarmers={setFarmers} purchases={purchases} payments={payments} setTab={setTab} setSelectedFarmerId={setSelectedFarmerId} />}
-          {tab === 'purchase' && <PurchaseTab farmers={farmers} setFarmers={setFarmers} purchases={purchases} setPurchases={setPurchases} onPrintReceipt={handlePrintReceipt} settings={settings} priceList={priceList} personnel={personnel} setPersonnel={setPersonnel} />}
-          {tab === 'warehouse' && <WarehouseTab purchases={purchases} buyers={buyers} setBuyers={setBuyers} sales={sales} setSales={setSales} />}
-          {tab === 'ledger' && <LedgerTab farmers={farmers} purchases={purchases} payments={payments} setPayments={setPayments} selectedFarmerId={selectedFarmerId} setSelectedFarmerId={setSelectedFarmerId} onPrintReceipt={handlePrintReceipt} />}
-          {tab === 'reports' && <ReportsTab farmers={farmers} purchases={purchases} sales={sales} buyers={buyers} />}
-          {tab === 'settings' && <SettingsTab settings={settings} setSettings={setSettings} priceList={priceList} setPriceList={setPriceList} />}
+          {tab === 'purchase' && <PurchaseTab farmers={farmers} setFarmers={setFarmers} purchases={purchases} setPurchases={setPurchases} onPrintReceipt={handlePrintReceipt} settings={settings} priceList={priceList} personnel={personnel} setPersonnel={setPersonnel} vehicles={vehicles} setVehicles={setVehicles} />}
+          {tab === 'allPurchases' && <AllPurchasesTab farmers={farmers} purchases={purchases} personnel={personnel} onPrintReceipt={handlePrintReceipt} settings={settings} />}
+          {tab === 'warehouse' && <WarehouseTab purchases={purchases} buyers={buyers} setBuyers={setBuyers} sales={sales} setSales={setSales} vehicles={vehicles} setVehicles={setVehicles} personnel={personnel} />}
+          {tab === 'fleet' && <FleetTab vehicles={vehicles} setVehicles={setVehicles} personnel={personnel} setPersonnel={setPersonnel} purchases={purchases} sales={sales} farmers={farmers} buyers={buyers} />}
+          {tab === 'ledger' && <LedgerTab farmers={farmers} purchases={purchases} payments={payments} setPayments={setPayments} selectedFarmerId={selectedFarmerId} setSelectedFarmerId={setSelectedFarmerId} onPrintReceipt={handlePrintReceipt} settings={settings} />}
+          {tab === 'expenses' && <ExpensesTab expenses={expenses} setExpenses={setExpenses} />}
+          {tab === 'cash' && <CashTab settings={settings} setSettings={setSettings} payments={payments} expenses={expenses} cashEntries={cashEntries} setCashEntries={setCashEntries} farmers={farmers} />}
+          {tab === 'reports' && <ReportsTab farmers={farmers} purchases={purchases} sales={sales} buyers={buyers} expenses={expenses} />}
+          {tab === 'settings' && <SettingsTab settings={settings} setSettings={setSettings} priceList={priceList} setPriceList={setPriceList} onBackup={backupData} onRestore={restoreData} restoreStatus={restoreStatus} />}
         </div>
       </div>
       {printTarget && <PrintArea purchase={printTarget.purchase} farmer={printTarget.farmer} settings={settings} />}
